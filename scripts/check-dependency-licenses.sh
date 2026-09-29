@@ -18,12 +18,12 @@ if [[ -n "$declared" ]]; then
     if grep -qE "^${name}[[:space:]]" "$WHITELIST"; then
       license="$(grep -E "^${name}[[:space:]]" "$WHITELIST" | head -1 | cut -f2)"
       if ! printf '%s' "$license" | grep -qE "$ALLOWED"; then
-        echo "❌ 依赖 $name 许可不在允许集（$license）" >&2; status=1
+        echo "❌ 依赖 $name 许可不在允许集（${license}）" >&2; status=1
       else
         echo "✅ 依赖 $name 许可 $license 已登记"
       fi
     else
-      echo "❌ 依赖未登记在白名单：$url（$WHITELIST）" >&2; status=1
+      echo "❌ 依赖未登记在白名单：${url}（${WHITELIST}）" >&2; status=1
     fi
   done <<< "$declared"
 fi

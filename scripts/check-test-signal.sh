@@ -15,19 +15,19 @@ MINIMUM="${2:?用法：check-test-signal.sh <日志文件> <最少用例数> [�
 LABEL="${3:-swift test}"
 
 if [[ ! -f "$LOG" ]]; then
-  echo "❌ $LABEL：找不到测试日志 $LOG" >&2
+  echo "❌ ${LABEL}：找不到测试日志 $LOG" >&2
   exit 1
 fi
 
 count="$(grep -oE 'Test run with [0-9]+ tests' "$LOG" | tail -1 | grep -oE '[0-9]+' || true)"
 if [[ -z "${count:-}" ]]; then
-  echo "❌ $LABEL：日志里没有 'Test run with N tests' 行 —— 测试没跑起来（fail-closed）" >&2
+  echo "❌ ${LABEL}：日志里没有 'Test run with N tests' 行 —— 测试没跑起来（fail-closed）" >&2
   echo "---- 日志尾部 ----" >&2
   tail -n 20 "$LOG" >&2
   exit 1
 fi
 if (( count < MINIMUM )); then
-  echo "❌ $LABEL：实际只跑了 $count 条用例，少于下限 $MINIMUM —— 疑似测试被静默跳过" >&2
+  echo "❌ ${LABEL}：实际只跑了 $count 条用例，少于下限 $MINIMUM —— 疑似测试被静默跳过" >&2
   exit 1
 fi
-echo "✅ $LABEL：实际跑了 $count 条用例（下限 $MINIMUM）"
+echo "✅ ${LABEL}：实际跑了 $count 条用例（下限 ${MINIMUM}）"
