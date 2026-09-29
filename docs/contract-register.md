@@ -33,3 +33,9 @@ swift test --package-path Tests --filter StructuralBudget   # 单条
 ```
 
 CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源。
+
+### 测试信号守卫（防「0 用例假绿」）
+
+`swift test` 在**一条用例都没跑**时退出码仍是 0 —— `--filter` 匹配 0 条（批 1 教训）、测试 target 被改名、扫不到用例文件都会这样。**只看退出码 = 假绿**。
+
+CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 35 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。

@@ -47,9 +47,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: DDScannerCore 单测（G1 红利：本机可跑）
-        run: swift test --package-path Sources/DDScannerCore
+        run: |
+          set -euo pipefail
+          swift test --package-path Sources/DDScannerCore 2>&1 | tee "${RUNNER_TEMP:-/tmp}/core-tests.log"
+          bash scripts/check-test-signal.sh "${RUNNER_TEMP:-/tmp}/core-tests.log" 35 "DDScannerCore 单测"
       - name: 契约测试（G3/G4/G5/G6）
-        run: swift test --package-path Tests
+        run: |
+          set -euo pipefail
+          swift test --package-path Tests 2>&1 | tee "${RUNNER_TEMP:-/tmp}/contract-tests.log"
+          bash scripts/check-test-signal.sh "${RUNNER_TEMP:-/tmp}/contract-tests.log" 17 "契约测试"
+      - name: DDScannerDewarp 单测（批 3 新增；本机 macOS 可跑，无模拟器）
+        run: |
+          set -euo pipefail
+          swift test --package-path Sources/DDScannerDewarp 2>&1 | tee "${RUNNER_TEMP:-/tmp}/dewarp-tests.log"
+          bash scripts/check-test-signal.sh "${RUNNER_TEMP:-/tmp}/dewarp-tests.log" 6 "DDScannerDewarp 单测"
 
   ios-build:
     name: iOS 编译级验证 + 零警告（G1）
