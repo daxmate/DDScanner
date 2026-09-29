@@ -1,0 +1,14 @@
+# Tools/ModelConvert —— 转换脚本的钉住依赖（Python 3.13）。
+#
+# 组合来源：Spike 001 实测可用组合（coremltools 9.0 + torch 2.14.0，成功产出 FP16/FP32
+# mlprogram 且数值达标）。**改动任何一个版本都必须重跑转换并核 --verify 数值。**
+#
+# 注意（已知告警，非阻断）：coremltools 9.0 官方测试到 PyTorch 2.7，2.14.0 会打印
+# "has not been tested" 警告；Spike 001 与本次生产转换均在该组合下通过。若要收敛到
+# 官方测试区间，需整体验证一次并更新本文件与 README 的实测记录。
+#
+# Python 版本：3.13（本机 python3 是 3.14，过新；用 python3.13 建 venv）。
+
+coremltools==9.0
+torch==2.14.0
+numpy==2.5.3

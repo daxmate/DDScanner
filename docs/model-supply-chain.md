@@ -4,24 +4,32 @@
 
 用 **UVDoc**（Core ML）处理书页弯曲等**非线性**畸变；线性透视畸变由 Core Image 负责。
 
-## 转换链（Paddle → ONNX → Core ML）
+## 转换链（**定案：原版 PyTorch → torchscript trace → Core ML**）
 
 ```
-UVDoc 权重(Paddle)  →  ONNX(opset 待定)  →  coremltools  →  UVDoc.mlpackage
-                                             │
-                                             └─ mlprogram + FLOAT16（利于 ANE）
+UVDoc 原版权重(PyTorch, MIT)  →  torch.jit.trace + freeze  →  coremltools 9.0
+                                                               │
+                                                               └─ mlprogram + FLOAT16 + iOS17
 ```
+
+原计划的 `Paddle → ONNX → Core ML` 路径**未采用**：原版仓库（`tanguymagne/UVDoc`，MIT）自带 checkpoint，
+一步 trace 即成，许可干净且少一层格式转换。实测证据见 Spike 001 结论（`corpus` 归档路径）。
 
 - 转换脚本与产物**必须成对入库**（可复现）：改脚本必须重出产物，出产物必须带脚本与版本记录。
-- 量化时机：先转 `.mlpackage`，再用 `coremltools.optimize.coreml` 做权重线性量化（不在导出前量化）。
-- 已知难点（动手前先验证，勿凭记忆）：UVDoc 的双头网格输出与 `F.grid_sample` 双线性采样，
-  多半需要在 Core ML 图外自行实现重采样。
+  → `Tools/ModelConvert/`（脚本 + 钉版本 `requirements.txt` + 说明）。
+- **量化时机**：直接用 coremltools 的 `compute_precision=FLOAT16` 出 FP16 产物（实测 ANE 2.28 ms / 16 MB）。
+  继续做 INT8 权重线性量化**实测更慢**（2.76 ms，8.1 MB），故不采用。
+- **关键决定：重采样不进模型**。网络只出采样网格；`interpolate` + `grid_sample` 由 Swift 侧用
+  **Float32** 实现（`Sources/DDScannerCore/.../Geometry/GridResampler.swift`）。若把重采样放进模型，
+  FP16 网格坐标量化会让像素误差飙到 ~4.96（真实文档 ≤0.5%）——数据见 `Tools/ModelConvert/README.md`。
 
 ## 产物登记（表格随产物更新）
 
 | 产物 | 来源 | 许可 | 转换脚本 | 状态 |
 |---|---|---|---|---|
-| `UVDoc.mlpackage` | `PaddlePaddle/UVDoc`（Apache-2.0）/ 原版 `tanguymagne/UVDoc`（MIT） | Apache-2.0 / MIT | 待补 | **未入库**（批 1 只有协议与占位后端） |
+| `Models/UVDocGrid_fp16.mlpackage`（15 MB，FP16 mlprogram，固定 `1×3×712×488`，只出双网格） | 原版 `tanguymagne/UVDoc`（MIT），权重 sha256 `7e90861b…bda23` | **MIT** | `Tools/ModelConvert/convert_uvdoc.py` | **已入库** |
+
+> 权重**原件**不在本仓分发；产物由脚本复现（取原件 → 核 sha256 → 转换 → `--verify`），见 `Models/README.md`。
 
 > 许可结论来源：工作区取证产物 `memory/DDScanner/license-facts-2026-09-29.md`
 > （代码 Apache-2.0/MIT 已实锤；权重经 HF 镜像 API 确认为 `apache-2.0`、`gated: false`）。
