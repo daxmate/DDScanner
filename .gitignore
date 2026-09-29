@@ -7,6 +7,8 @@ xcuserdata/
 *.xccheckout
 .swiftpm/
 Package.resolved
+# worktree（本地并行开发用，不入库）
+.worktrees/
 # 临时产物
 /tmp-*
 *.orig

@@ -13,6 +13,7 @@ concurrency:
 env:
   SWIFTLINT_VERSION: 0.65.1
   SWIFTFORMAT_VERSION: 0.63.0
+  XCODEGEN_VERSION: 2.46.0
 
 jobs:
   gates:
@@ -55,6 +56,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install pinned xcodegen（G9，装完自校验）
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          test "$(xcodegen --version | awk '{print $2}')" = "$XCODEGEN_VERSION" || { echo "xcodegen 版本不符：期望 ${XCODEGEN_VERSION}，实际 $(xcodegen --version)"; exit 1; }
       - name: 生成工程幂等性（G9/gen-project）
         run: |
           set -euo pipefail
