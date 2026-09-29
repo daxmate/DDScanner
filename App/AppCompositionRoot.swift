@@ -1,4 +1,4 @@
-// AppCompositionRoot —— 全应用唯一装配点（占位，见 docs/architecture.md）。
+// AppCompositionRoot —— 全应用唯一装配点（见 docs/architecture.md）。
 // 视图层一律从 Environment 取依赖；除 Preview 外，任何新装配点都必须先改本文件。
 import DDScannerCore
 import DDScannerDewarp
@@ -9,6 +9,12 @@ import SwiftUI
 /// 视图层可消费的依赖集合。
 struct ScanEnvironment {
     let pipeline: ScanPipeline
+    /// 去畸变网格后端（UVDoc Core ML）；**模型缺失时为 nil**，消费端必须能降级处理、不得崩。
+    let gridPredictor: GridPredicting?
+    /// 模型装载结果的人话描述，供开发自测页显示（成功或失败原因）。
+    let dewarpStatus: String
+    /// 请求的算力单元（MLComputeUnits）；模型不可用时为「不可用」。
+    let dewarpComputeUnits: String
 }
 
 enum AppCompositionRoot {
@@ -20,8 +26,27 @@ enum AppCompositionRoot {
             dewarp: nil,
             exporter: PDFPageExporter()
         )
-        AppLog.info("扫描管线装配完成", category: .app)
-        return ScanEnvironment(pipeline: pipeline)
+        let (gridPredictor, dewarpStatus, dewarpComputeUnits) = makeDewarpBackend()
+        AppLog.info("扫描管线装配完成（去畸变：\(dewarpStatus)）", category: .app)
+        return ScanEnvironment(
+            pipeline: pipeline,
+            gridPredictor: gridPredictor,
+            dewarpStatus: dewarpStatus,
+            dewarpComputeUnits: dewarpComputeUnits
+        )
+    }
+
+    /// 装载去畸变模型；**失败只降级不崩**：模型缺失/加载失败 → `nil` + 原因文本。
+    private static func makeDewarpBackend() -> (GridPredicting?, String, String) {
+        let descriptor = DewarpModelDescriptor.uvDoc
+        do {
+            let backend = try CoreMLDewarpBackend(descriptor: descriptor)
+            let units = "\(backend.computeUnits)"
+            return (backend, "已装载 \(descriptor.bundleResource)（computeUnits=\(units)）", units)
+        } catch {
+            AppLog.warning("去畸变模型不可用，已降级为无去畸变：\(error)", category: .dewarp)
+            return (nil, "模型不可用：\(error)", "不可用")
+        }
     }
 }
 

@@ -15,6 +15,18 @@ struct ContentView: View {
                     .padding(.horizontal, 24)
             }
             .navigationTitle(String(localized: "app.title"))
+            #if DEBUG
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            DewarpSelfTestView()
+                        } label: {
+                            Image(systemName: "waveform.path.ecg")
+                        }
+                        .accessibilityLabel("去畸变自测（开发用）")
+                    }
+                }
+            #endif
         }
     }
 

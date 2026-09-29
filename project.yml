@@ -29,6 +29,11 @@ targets:
     sources:
       - path: App
       - path: Resources
+      # 模型产物作为资源随 App 打包（Xcode 会把 .mlpackage 编译成 .mlmodelc）。
+      # README 只是说明文档，不进 bundle。
+      - path: Models
+        excludes:
+          - "*.md"
     dependencies:
       - package: DDScannerCore
         product: DDScannerCore

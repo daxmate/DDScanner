@@ -17,6 +17,12 @@ let package = Package(
             dependencies: [.product(name: "DDScannerCore", package: "DDScannerCore")],
             path: "Sources/DDScannerDewarp"
         ),
+        // 后端行为测试（本机 macOS 可跑，无模拟器）：降级路径 + 真实产物推理。
+        .testTarget(
+            name: "DDScannerDewarpTests",
+            dependencies: ["DDScannerDewarp"],
+            path: "Tests/DDScannerDewarpTests"
+        ),
     ],
     swiftLanguageModes: [.v5]
 )

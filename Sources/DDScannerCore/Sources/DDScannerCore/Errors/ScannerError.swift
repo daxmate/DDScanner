@@ -10,6 +10,8 @@ public enum ScannerError: Error, Equatable, CustomStringConvertible {
     case homographyNotSolvable
     /// 管线阶段未装配（组合根漏装配）。
     case stageNotConfigured(String)
+    /// 模型不可用（资源缺失 / 装载失败 / 输入不匹配）——调用方必须可降级，不得崩。
+    case modelUnavailable(String)
     /// 输入帧尺寸非法。
     case invalidFrameSize(width: Int, height: Int)
 
@@ -19,6 +21,7 @@ public enum ScannerError: Error, Equatable, CustomStringConvertible {
         case .degenerateQuad: return "检测到的四边形退化"
         case .homographyNotSolvable: return "单应矩阵奇异"
         case let .stageNotConfigured(stage): return "管线阶段未装配：\(stage)"
+        case let .modelUnavailable(reason): return "模型不可用：\(reason)"
         case let .invalidFrameSize(width, height): return "非法帧尺寸：\(width)×\(height)"
         }
     }

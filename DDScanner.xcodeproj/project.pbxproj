@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0949B067BA79062698E9E3F2 /* UVDocGrid_fp16.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 31BBCCCA60F30A3E1858254A /* UVDocGrid_fp16.mlpackage */; };
 		11509BFEFFE2F756FD52B7AA /* DDScannerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 70732A2C925FD739F59707AE /* DDScannerCore */; };
 		18000BEF23AE3EBBD5ABF68C /* LocalizationKeySetContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6E2B68D5F02300BFDDF9DA2 /* LocalizationKeySetContractTests.swift */; };
+		24A8F1892BA2C623963F9CB8 /* DewarpSelfTestRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C395ABFBEE1AF928F4281D5 /* DewarpSelfTestRunner.swift */; };
 		270B399850177547438E29AE /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DDC4DE222C377F8CECDE6585 /* Localizable.strings */; };
 		2937AC24A50814DBBF5BC127 /* DDScannerDewarp in Frameworks */ = {isa = PBXBuildFile; productRef = 3867B149DC40E76AEDED500F /* DDScannerDewarp */; };
 		2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3A46373D5509594445B0E7 /* DDScannerApp.swift */; };
@@ -20,7 +22,9 @@
 		45EE6582662B5D1995B3DFD9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2270B00217D9D79C7EF1CE90 /* ContentView.swift */; };
 		4EDAD8BF7B5B5106D14CE532 /* DDScannerExport in Frameworks */ = {isa = PBXBuildFile; productRef = A6C4DB350CE9BD4FE73FFF8F /* DDScannerExport */; };
 		6796FB899EBC3DF24FF54246 /* DDScannerVision in Frameworks */ = {isa = PBXBuildFile; productRef = FDF0E05BB56C2AE7CA34B3EF /* DDScannerVision */; };
+		6C03AC5B321EE2A033CAAA83 /* DewarpSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */; };
 		8E79C245076E9DFF04A6B8EA /* RepoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB542988F91A47B2FE31CCA /* RepoLayout.swift */; };
+		910B81C0D7848283FDA3E5F8 /* DevSampleDocument.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8A3FB536ED2433B9033364A2 /* DevSampleDocument.jpg */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,14 +39,18 @@
 
 /* Begin PBXFileReference section */
 		02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCompositionRoot.swift; sourceTree = "<group>"; };
+		0C395ABFBEE1AF928F4281D5 /* DewarpSelfTestRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DewarpSelfTestRunner.swift; sourceTree = "<group>"; };
 		0CE8803D85BE52797DB4886E /* DDScannerContractTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DDScannerContractTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D6AB1A084656AFABBD57F6B /* EnvironmentInjectionContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentInjectionContractTests.swift; sourceTree = "<group>"; };
 		134B46474B6187F940E9BA5F /* DDScannerCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerCore; path = Sources/DDScannerCore; sourceTree = SOURCE_ROOT; };
 		1C8FB70A24CCDD46B14F310D /* StructuralBudgetRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralBudgetRule.swift; sourceTree = "<group>"; };
 		2270B00217D9D79C7EF1CE90 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		31BBCCCA60F30A3E1858254A /* UVDocGrid_fp16.mlpackage */ = {isa = PBXFileReference; path = UVDocGrid_fp16.mlpackage; sourceTree = "<group>"; };
+		3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DewarpSelfTestView.swift; sourceTree = "<group>"; };
 		4410D0DEDDCBC116347FAB24 /* ContractRegisterContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContractRegisterContractTests.swift; sourceTree = "<group>"; };
 		441A776ED52E0B1EB02F5B2C /* DDScannerVision */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerVision; path = Sources/DDScannerVision; sourceTree = SOURCE_ROOT; };
 		4E30C08A2D1C3073AAB50F71 /* DDScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DDScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A3FB536ED2433B9033364A2 /* DevSampleDocument.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = DevSampleDocument.jpg; sourceTree = "<group>"; };
 		8B3A46373D5509594445B0E7 /* DDScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DDScannerApp.swift; sourceTree = "<group>"; };
 		A0D4B17DC01C4A5F092D6BC0 /* DDScannerDewarp */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerDewarp; path = Sources/DDScannerDewarp; sourceTree = SOURCE_ROOT; };
 		AAB2F4E403704D83C355AC40 /* DDScannerExport */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerExport; path = Sources/DDScannerExport; sourceTree = SOURCE_ROOT; };
@@ -68,9 +76,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		21CC5DF4647A77D95754432E /* Dev */ = {
+			isa = PBXGroup;
+			children = (
+				0C395ABFBEE1AF928F4281D5 /* DewarpSelfTestRunner.swift */,
+				3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */,
+			);
+			path = Dev;
+			sourceTree = "<group>";
+		};
 		3DABDB963DF17EC6D1245C24 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				8A3FB536ED2433B9033364A2 /* DevSampleDocument.jpg */,
 				DDC4DE222C377F8CECDE6585 /* Localizable.strings */,
 			);
 			path = Resources;
@@ -97,6 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				E766BA4389CC20518AAB138A /* App */,
+				CF0CE12CD7903E056382B70B /* Models */,
 				EFFD092AC01F4D7B6B4FF224 /* Packages */,
 				3DABDB963DF17EC6D1245C24 /* Resources */,
 				422145151C9597FBEC17C3C0 /* Tests */,
@@ -116,12 +135,21 @@
 			path = ContractTests;
 			sourceTree = "<group>";
 		};
+		CF0CE12CD7903E056382B70B /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				31BBCCCA60F30A3E1858254A /* UVDocGrid_fp16.mlpackage */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		E766BA4389CC20518AAB138A /* App */ = {
 			isa = PBXGroup;
 			children = (
 				02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */,
 				2270B00217D9D79C7EF1CE90 /* ContentView.swift */,
 				8B3A46373D5509594445B0E7 /* DDScannerApp.swift */,
+				21CC5DF4647A77D95754432E /* Dev */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -233,6 +261,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				910B81C0D7848283FDA3E5F8 /* DevSampleDocument.jpg in Resources */,
 				270B399850177547438E29AE /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -260,6 +289,9 @@
 				3C44DCE6C994E05B2FE38289 /* AppCompositionRoot.swift in Sources */,
 				45EE6582662B5D1995B3DFD9 /* ContentView.swift in Sources */,
 				2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */,
+				24A8F1892BA2C623963F9CB8 /* DewarpSelfTestRunner.swift in Sources */,
+				6C03AC5B321EE2A033CAAA83 /* DewarpSelfTestView.swift in Sources */,
+				0949B067BA79062698E9E3F2 /* UVDocGrid_fp16.mlpackage in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

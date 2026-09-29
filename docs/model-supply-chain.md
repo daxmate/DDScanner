@@ -43,6 +43,9 @@ UVDoc 原版权重(PyTorch, MIT)  →  torch.jit.trace + freeze  →  coremltool
 
 ## 真机基准报告要求（模型入库的前置条件）
 
+> 自测工具：App 内 DEBUG 页 `App/Dev/DewarpSelfTestView.swift`，步骤与读法见 `docs/device-test-uvdoc.md`；
+> macOS 侧的模型冒烟测试在 `Sources/DDScannerDewarp/Tests/`（真实产物推理 → 45×31 网格 → 接重采样）。
+
 每份模型产物必须附一份真机基准报告，至少包含：
 
 1. **机型与芯片**（如 iPhone 15 Pro / A17 Pro），以及 iOS 版本。
