@@ -38,6 +38,7 @@
 | G7 | 依赖许可扫描 | `scripts/check-dependency-licenses.sh` |
 | G8 | lint 锁版本 + 装完自校验 | CI step + `.swiftlint.yml` + `.swiftformat` |
 | G9 | 统一构建入口（禁裸 `xcodebuild`） | `scripts/xcbuild.sh` + `scripts/check-build-entry.sh` |
+| G10 | shell 变量展开边界（变量引用紧跟非 ASCII 字节 → 花括号定界） | `scripts/check-shell-quoting.sh`（CI job `gates`） |
 
 **无棘轮**：本仓从零起步，结构超限与裸 `print` 的存量必须恒为 0，不引入「只能减不能增」的基线计数。
 

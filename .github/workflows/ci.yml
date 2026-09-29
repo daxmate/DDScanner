@@ -17,7 +17,7 @@ env:
 
 jobs:
   gates:
-    name: 纪律门禁（G1–G9）
+    name: 纪律门禁（G1–G10）
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +35,8 @@ jobs:
         run: bash scripts/check-structural-budget.sh check
       - name: 依赖许可（G7）
         run: bash scripts/check-dependency-licenses.sh
+      - name: shell 变量展开边界（G10）
+        run: bash scripts/check-shell-quoting.sh
       - name: 格式与静态检查（G8）
         run: |
           set -euo pipefail

@@ -39,3 +39,11 @@ CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源
 `swift test` 在**一条用例都没跑**时退出码仍是 0 —— `--filter` 匹配 0 条（批 1 教训）、测试 target 被改名、扫不到用例文件都会这样。**只看退出码 = 假绿**。
 
 CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 35 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
+
+### shell 变量展开边界（G10）
+
+`scripts/check-shell-quoting.sh` 静态扫描 `scripts/*.sh` 与 `.github/workflows/*.yml`：变量引用（`$` + 变量名）**紧跟非 ASCII 字节**（全角冒号、全角括号等多字节字符）时，bash 5.x + UTF-8 locale 会把多字节字节并入变量名 → `set -u` 下报 unbound variable；而 macOS 自带旧 bash（3.2.57）不重现 → 本地自验假绿、CI 才红。命中即红（打印 `文件:行: 原文`）；**fail-closed**：待扫目录缺失/不可读、或一个待扫文件都没有，一律判红。修法：花括号定界（`${VAR}`）。
+
+- 注释行不豁免（同类写法被粘贴回代码同样是隐患）。
+- CI 落点：`ci.yml` job `gates` 的 step「shell 变量展开边界（G10）」。
+- 自证：往任一 `scripts/*.sh` 注入一行引用后紧跟全角字符的 `echo` → 必须红；还原后必须绿。
