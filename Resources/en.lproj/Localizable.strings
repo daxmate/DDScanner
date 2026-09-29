@@ -1,0 +1,7 @@
+/* DDScanner English localization (placeholder, see docs/architecture.md) */
+"app.title" = "DDScanner";
+"pipeline.ready" = "Scan pipeline is wired; features land in later batches.";
+"pipeline.unavailable" = "Scan pipeline is not configured.";
+"scan.capture" = "Capture document";
+"scan.import" = "Import from Photos";
+"export.pdf" = "Export as PDF";

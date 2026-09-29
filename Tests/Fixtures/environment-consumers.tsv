@@ -1,0 +1,3 @@
+# 组合根消费端登记表：path<TAB>reason（reason 必填，缺理由 = 契约红）
+# 新增视图消费 @Environment(\.scanEnvironment) 时必须在此登记。
+App/ContentView.swift	扫描首页，唯一消费端；经组合根装配的 ScanEnvironment 取管线。

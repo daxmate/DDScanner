@@ -1,0 +1,2 @@
+# 依赖许可白名单：name<TAB>license<TAB>reason（reason 必填；许可只允许 MIT / Apache-2.0 / BSD-*）
+# 当前无第三方依赖；新增依赖必须先在此登记，否则 G7 判红。

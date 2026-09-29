@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# DDScanner pre-commit：本地门禁（CI 兜底，见 AGENTS.md）。
+# 跳过重型构建：SKIP_BUILD=1 git commit ...
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+echo "▶ [1/7] 统一构建入口（G9）"
+bash scripts/check-build-entry.sh
+
+echo "▶ [2/7] 分层边界（Core 平台无关）"
+bash scripts/check-forbidden-imports.sh
+
+echo "▶ [3/7] 结构硬上限（G2）"
+bash scripts/check-structural-budget.sh check
+
+echo "▶ [4/7] 依赖许可（G7）"
+bash scripts/check-dependency-licenses.sh
+
+echo "▶ [5/7] 格式化（G8，swiftformat）"
+format_version="$(swiftformat --version 2>/dev/null || true)"
+if [[ "$format_version" != "0.63.0" ]]; then
+  echo "❌ swiftformat 版本不符：期望 0.63.0，实际 ${format_version:-未安装}" >&2
+  exit 1
+fi
+staged_swift="$(git diff --cached --name-only --diff-filter=ACM | grep '\.swift$' || true)"
+if [[ -n "$staged_swift" ]]; then
+  printf '%s\n' "$staged_swift" | xargs swiftformat --lint --quiet
+fi
+
+echo "▶ [6/7] 静态检查（G8，swiftlint）"
+lint_version="$(swiftlint version 2>/dev/null || true)"
+if [[ "$lint_version" != "0.65.1" ]]; then
+  echo "❌ swiftlint 版本不符：期望 0.65.1，实际 ${lint_version:-未安装}" >&2
+  exit 1
+fi
+if [[ -n "$staged_swift" ]]; then
+  printf '%s\n' "$staged_swift" | xargs swiftlint lint --quiet
+fi
+
+if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
+  echo "▶ [7/7] 跳过构建（SKIP_BUILD=1）"
+else
+  echo "▶ [7/7] 零编译警告（G1，耗时约 1–3 分钟）"
+  bash scripts/check-zero-warnings.sh build
+fi
+
+echo "✅ pre-commit 全部门禁通过"

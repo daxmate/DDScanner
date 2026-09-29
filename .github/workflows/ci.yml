@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SWIFTLINT_VERSION: 0.65.1
+  SWIFTFORMAT_VERSION: 0.63.0
+
+jobs:
+  gates:
+    name: 纪律门禁（G1–G9）
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned lint tools（G8，装完自校验）
+        run: |
+          set -euo pipefail
+          brew install swiftlint swiftformat
+          test "$(swiftlint version)" = "$SWIFTLINT_VERSION" || { echo "swiftlint 版本不符"; exit 1; }
+          test "$(swiftformat --version)" = "$SWIFTFORMAT_VERSION" || { echo "swiftformat 版本不符"; exit 1; }
+      - name: 统一构建入口（G9）
+        run: bash scripts/check-build-entry.sh
+      - name: 分层边界（Core 平台无关）
+        run: bash scripts/check-forbidden-imports.sh
+      - name: 结构硬上限（G2）
+        run: bash scripts/check-structural-budget.sh check
+      - name: 依赖许可（G7）
+        run: bash scripts/check-dependency-licenses.sh
+      - name: 格式与静态检查（G8）
+        run: |
+          set -euo pipefail
+          swiftformat --lint --quiet .
+          swiftlint lint --quiet
+
+  core-tests:
+    name: Core 与契约测试（无模拟器）
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: DDScannerCore 单测（G1 红利：本机可跑）
+        run: swift test --package-path Sources/DDScannerCore
+      - name: 契约测试（G3/G4/G5/G6）
+        run: swift test --package-path Tests
+
+  ios-build:
+    name: iOS 编译级验证 + 零警告（G1）
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 生成工程幂等性（G9/gen-project）
+        run: |
+          set -euo pipefail
+          bash scripts/gen-project.sh
+          git diff --exit-code -- DDScanner.xcodeproj
+      - name: 构建 + 零警告
+        run: bash scripts/check-zero-warnings.sh build
+      - name: 测试 target 编译
+        run: bash scripts/check-zero-warnings.sh build-for-testing

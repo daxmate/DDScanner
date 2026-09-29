@@ -1,0 +1,7 @@
+/* DDScanner 中文本地化（占位，见 docs/architecture.md） */
+"app.title" = "DDScanner";
+"pipeline.ready" = "扫描管线已装配，业务功能待接入。";
+"pipeline.unavailable" = "扫描管线未装配。";
+"scan.capture" = "拍摄文档";
+"scan.import" = "从相册导入";
+"export.pdf" = "导出 PDF";

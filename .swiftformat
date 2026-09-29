@@ -1,0 +1,11 @@
+--disable all
+--enable linebreakAtEndOfFile
+--enable consecutiveBlankLines
+--enable indent
+--enable linebreaks
+--enable semicolons
+--enable spaceAroundOperators
+--enable spaceInsideBraces
+--enable trailingSpace
+--swiftversion 5.0
+--exclude .build,DerivedData,DDScanner.xcodeproj

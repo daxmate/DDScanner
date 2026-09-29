@@ -1,0 +1,565 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		11509BFEFFE2F756FD52B7AA /* DDScannerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 70732A2C925FD739F59707AE /* DDScannerCore */; };
+		18000BEF23AE3EBBD5ABF68C /* LocalizationKeySetContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6E2B68D5F02300BFDDF9DA2 /* LocalizationKeySetContractTests.swift */; };
+		270B399850177547438E29AE /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DDC4DE222C377F8CECDE6585 /* Localizable.strings */; };
+		2937AC24A50814DBBF5BC127 /* DDScannerDewarp in Frameworks */ = {isa = PBXBuildFile; productRef = 3867B149DC40E76AEDED500F /* DDScannerDewarp */; };
+		2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3A46373D5509594445B0E7 /* DDScannerApp.swift */; };
+		38FECFD4E570830C4F2D0589 /* StructuralBudgetRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C8FB70A24CCDD46B14F310D /* StructuralBudgetRule.swift */; };
+		3C44DCE6C994E05B2FE38289 /* AppCompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */; };
+		417D656C5B6A63365F3F73FC /* EnvironmentInjectionContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D6AB1A084656AFABBD57F6B /* EnvironmentInjectionContractTests.swift */; };
+		451202BA9B4AA90D03E913E9 /* StructuralBudgetContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1491D4D9E752258466687DE /* StructuralBudgetContractTests.swift */; };
+		45BB3A6F934E90B7A4A3C010 /* ContractRegisterContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4410D0DEDDCBC116347FAB24 /* ContractRegisterContractTests.swift */; };
+		45EE6582662B5D1995B3DFD9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2270B00217D9D79C7EF1CE90 /* ContentView.swift */; };
+		4EDAD8BF7B5B5106D14CE532 /* DDScannerExport in Frameworks */ = {isa = PBXBuildFile; productRef = A6C4DB350CE9BD4FE73FFF8F /* DDScannerExport */; };
+		6796FB899EBC3DF24FF54246 /* DDScannerVision in Frameworks */ = {isa = PBXBuildFile; productRef = FDF0E05BB56C2AE7CA34B3EF /* DDScannerVision */; };
+		8E79C245076E9DFF04A6B8EA /* RepoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB542988F91A47B2FE31CCA /* RepoLayout.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		CA9DF438F329C3038884EE36 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FA332FAC28E67DBDCF0A4591 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1124461DE6970036AFFC5990;
+			remoteInfo = DDScanner;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCompositionRoot.swift; sourceTree = "<group>"; };
+		0CE8803D85BE52797DB4886E /* DDScannerContractTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DDScannerContractTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0D6AB1A084656AFABBD57F6B /* EnvironmentInjectionContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentInjectionContractTests.swift; sourceTree = "<group>"; };
+		134B46474B6187F940E9BA5F /* DDScannerCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerCore; path = Sources/DDScannerCore; sourceTree = SOURCE_ROOT; };
+		1C8FB70A24CCDD46B14F310D /* StructuralBudgetRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralBudgetRule.swift; sourceTree = "<group>"; };
+		2270B00217D9D79C7EF1CE90 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		4410D0DEDDCBC116347FAB24 /* ContractRegisterContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContractRegisterContractTests.swift; sourceTree = "<group>"; };
+		441A776ED52E0B1EB02F5B2C /* DDScannerVision */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerVision; path = Sources/DDScannerVision; sourceTree = SOURCE_ROOT; };
+		4E30C08A2D1C3073AAB50F71 /* DDScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DDScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8B3A46373D5509594445B0E7 /* DDScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DDScannerApp.swift; sourceTree = "<group>"; };
+		A0D4B17DC01C4A5F092D6BC0 /* DDScannerDewarp */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerDewarp; path = Sources/DDScannerDewarp; sourceTree = SOURCE_ROOT; };
+		AAB2F4E403704D83C355AC40 /* DDScannerExport */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerExport; path = Sources/DDScannerExport; sourceTree = SOURCE_ROOT; };
+		CCB542988F91A47B2FE31CCA /* RepoLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoLayout.swift; sourceTree = "<group>"; };
+		D1491D4D9E752258466687DE /* StructuralBudgetContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralBudgetContractTests.swift; sourceTree = "<group>"; };
+		D6E2B68D5F02300BFDDF9DA2 /* LocalizationKeySetContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationKeySetContractTests.swift; sourceTree = "<group>"; };
+		F6E89B81624E1A6F1F87CB0C /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		F99C9B92DB8E9826F3F23D56 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		741D77BF6E2182811BD5ED41 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11509BFEFFE2F756FD52B7AA /* DDScannerCore in Frameworks */,
+				6796FB899EBC3DF24FF54246 /* DDScannerVision in Frameworks */,
+				2937AC24A50814DBBF5BC127 /* DDScannerDewarp in Frameworks */,
+				4EDAD8BF7B5B5106D14CE532 /* DDScannerExport in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3DABDB963DF17EC6D1245C24 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DDC4DE222C377F8CECDE6585 /* Localizable.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		422145151C9597FBEC17C3C0 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				CE439B6120BDE83F1E109026 /* ContractTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		6BB99DB048514069FBDA1D05 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				CCB542988F91A47B2FE31CCA /* RepoLayout.swift */,
+				1C8FB70A24CCDD46B14F310D /* StructuralBudgetRule.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		B369ACD8D3AA73454EF0F6DE = {
+			isa = PBXGroup;
+			children = (
+				E766BA4389CC20518AAB138A /* App */,
+				EFFD092AC01F4D7B6B4FF224 /* Packages */,
+				3DABDB963DF17EC6D1245C24 /* Resources */,
+				422145151C9597FBEC17C3C0 /* Tests */,
+				EAEDBCD2CA280F55E4F88A85 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CE439B6120BDE83F1E109026 /* ContractTests */ = {
+			isa = PBXGroup;
+			children = (
+				4410D0DEDDCBC116347FAB24 /* ContractRegisterContractTests.swift */,
+				0D6AB1A084656AFABBD57F6B /* EnvironmentInjectionContractTests.swift */,
+				D6E2B68D5F02300BFDDF9DA2 /* LocalizationKeySetContractTests.swift */,
+				D1491D4D9E752258466687DE /* StructuralBudgetContractTests.swift */,
+				6BB99DB048514069FBDA1D05 /* Support */,
+			);
+			path = ContractTests;
+			sourceTree = "<group>";
+		};
+		E766BA4389CC20518AAB138A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */,
+				2270B00217D9D79C7EF1CE90 /* ContentView.swift */,
+				8B3A46373D5509594445B0E7 /* DDScannerApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		EAEDBCD2CA280F55E4F88A85 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4E30C08A2D1C3073AAB50F71 /* DDScanner.app */,
+				0CE8803D85BE52797DB4886E /* DDScannerContractTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EFFD092AC01F4D7B6B4FF224 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				134B46474B6187F940E9BA5F /* DDScannerCore */,
+				A0D4B17DC01C4A5F092D6BC0 /* DDScannerDewarp */,
+				AAB2F4E403704D83C355AC40 /* DDScannerExport */,
+				441A776ED52E0B1EB02F5B2C /* DDScannerVision */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1124461DE6970036AFFC5990 /* DDScanner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 23DDF9781A86C257E87905C3 /* Build configuration list for PBXNativeTarget "DDScanner" */;
+			buildPhases = (
+				FC61A026EEBDDAE559410B94 /* Sources */,
+				297F3146F60EDBCA74791D3F /* Resources */,
+				741D77BF6E2182811BD5ED41 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DDScanner;
+			packageProductDependencies = (
+				70732A2C925FD739F59707AE /* DDScannerCore */,
+				FDF0E05BB56C2AE7CA34B3EF /* DDScannerVision */,
+				3867B149DC40E76AEDED500F /* DDScannerDewarp */,
+				A6C4DB350CE9BD4FE73FFF8F /* DDScannerExport */,
+			);
+			productName = DDScanner;
+			productReference = 4E30C08A2D1C3073AAB50F71 /* DDScanner.app */;
+			productType = "com.apple.product-type.application";
+		};
+		32B1898C67779353B49B651B /* DDScannerContractTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6F14A7AAE03E20ABC71682B6 /* Build configuration list for PBXNativeTarget "DDScannerContractTests" */;
+			buildPhases = (
+				AB71091428C740166BA402A7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				81E7B2B17F4CBB1C3A7025C1 /* PBXTargetDependency */,
+			);
+			name = DDScannerContractTests;
+			packageProductDependencies = (
+			);
+			productName = DDScannerContractTests;
+			productReference = 0CE8803D85BE52797DB4886E /* DDScannerContractTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FA332FAC28E67DBDCF0A4591 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 08BA04A168C6683E2B606331 /* Build configuration list for PBXProject "DDScanner" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+			);
+			mainGroup = B369ACD8D3AA73454EF0F6DE;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6A407DDA350A2787E7D74274 /* XCLocalSwiftPackageReference "Sources/DDScannerCore" */,
+				08FA551F2F9B3F517D6FDB26 /* XCLocalSwiftPackageReference "Sources/DDScannerDewarp" */,
+				4F00CDD6CE4D6875EE40E01A /* XCLocalSwiftPackageReference "Sources/DDScannerExport" */,
+				072E14011932F1915CB79545 /* XCLocalSwiftPackageReference "Sources/DDScannerVision" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = EAEDBCD2CA280F55E4F88A85 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1124461DE6970036AFFC5990 /* DDScanner */,
+				32B1898C67779353B49B651B /* DDScannerContractTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		297F3146F60EDBCA74791D3F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				270B399850177547438E29AE /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AB71091428C740166BA402A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45BB3A6F934E90B7A4A3C010 /* ContractRegisterContractTests.swift in Sources */,
+				417D656C5B6A63365F3F73FC /* EnvironmentInjectionContractTests.swift in Sources */,
+				18000BEF23AE3EBBD5ABF68C /* LocalizationKeySetContractTests.swift in Sources */,
+				8E79C245076E9DFF04A6B8EA /* RepoLayout.swift in Sources */,
+				451202BA9B4AA90D03E913E9 /* StructuralBudgetContractTests.swift in Sources */,
+				38FECFD4E570830C4F2D0589 /* StructuralBudgetRule.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC61A026EEBDDAE559410B94 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3C44DCE6C994E05B2FE38289 /* AppCompositionRoot.swift in Sources */,
+				45EE6582662B5D1995B3DFD9 /* ContentView.swift in Sources */,
+				2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		81E7B2B17F4CBB1C3A7025C1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1124461DE6970036AFFC5990 /* DDScanner */;
+			targetProxy = CA9DF438F329C3038884EE36 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		DDC4DE222C377F8CECDE6585 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				F6E89B81624E1A6F1F87CB0C /* en */,
+				F99C9B92DB8E9826F3F23D56 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		062EDB1F3A60EE0440D20352 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		07B37FCDCFE09E96A9DF5796 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		1E1174D39463678CB8BC4E2A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.daxmate.DDScannerContractTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DDScanner.app/DDScanner";
+			};
+			name = Debug;
+		};
+		43786613168BB2A872DCDF49 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = DDScanner;
+				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄文档并生成扫描件。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "用于把扫描件保存回相册。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入相册中的文档图片。";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.daxmate.DDScanner;
+				PRODUCT_NAME = DDScanner;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		8B3066A4874CB5A8652F0549 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = DDScanner;
+				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄文档并生成扫描件。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "用于把扫描件保存回相册。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于导入相册中的文档图片。";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.daxmate.DDScanner;
+				PRODUCT_NAME = DDScanner;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A3E5FFC3183D2143859D1B5F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.daxmate.DDScannerContractTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DDScanner.app/DDScanner";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		08BA04A168C6683E2B606331 /* Build configuration list for PBXProject "DDScanner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				062EDB1F3A60EE0440D20352 /* Debug */,
+				07B37FCDCFE09E96A9DF5796 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		23DDF9781A86C257E87905C3 /* Build configuration list for PBXNativeTarget "DDScanner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8B3066A4874CB5A8652F0549 /* Debug */,
+				43786613168BB2A872DCDF49 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6F14A7AAE03E20ABC71682B6 /* Build configuration list for PBXNativeTarget "DDScannerContractTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E1174D39463678CB8BC4E2A /* Debug */,
+				A3E5FFC3183D2143859D1B5F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		072E14011932F1915CB79545 /* XCLocalSwiftPackageReference "Sources/DDScannerVision" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Sources/DDScannerVision;
+		};
+		08FA551F2F9B3F517D6FDB26 /* XCLocalSwiftPackageReference "Sources/DDScannerDewarp" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Sources/DDScannerDewarp;
+		};
+		4F00CDD6CE4D6875EE40E01A /* XCLocalSwiftPackageReference "Sources/DDScannerExport" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Sources/DDScannerExport;
+		};
+		6A407DDA350A2787E7D74274 /* XCLocalSwiftPackageReference "Sources/DDScannerCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Sources/DDScannerCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3867B149DC40E76AEDED500F /* DDScannerDewarp */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DDScannerDewarp;
+		};
+		70732A2C925FD739F59707AE /* DDScannerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DDScannerCore;
+		};
+		A6C4DB350CE9BD4FE73FFF8F /* DDScannerExport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DDScannerExport;
+		};
+		FDF0E05BB56C2AE7CA34B3EF /* DDScannerVision */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DDScannerVision;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FA332FAC28E67DBDCF0A4591 /* Project object */;
+}
