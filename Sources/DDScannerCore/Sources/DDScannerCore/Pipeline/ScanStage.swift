@@ -35,6 +35,14 @@ public protocol PageDewarping: Sendable {
     func samplingGrid(for frame: ScanFrame, quad: DocumentQuad, columns: Int, rows: Int) throws -> SampleGrid
 }
 
+/// 网格预测：整幅像素 → 归一化采样网格（去畸变模型的原生契约，如 UVDoc）。
+///
+/// 与 `PageDewarping` 的分工：本协议由 Core ML 后端实现（需要像素），`PageDewarping` 是管线
+/// 阶段的网格契约（只需帧几何）。重采样由 `GridResampler` 用 Float32 完成。
+public protocol GridPredicting: Sendable {
+    func predictGrid(for image: FloatImage) throws -> NormalizedSampleGrid
+}
+
 /// 导出：采样结果 → 目标文件（PDF / 图片由 DDScannerExport 实现）。
 public protocol PageExporting: Sendable {
     func export(page: ScannedPage, to url: URL) throws
