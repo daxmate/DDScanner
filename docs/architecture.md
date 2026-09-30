@@ -118,3 +118,26 @@ Debug + Release 各一份），再按实测数据提速。
   默认 `zeros`（越界趋向黑边）；我们越界 **clamp 到边缘**（≡ PyTorch `border`）。实测（torch 2.14.0，
   3×3 图 + 网格 x = [-1.5, 0, 1.5]）：zeros → [1.5, 4.0, 2.5]，border → [3.0, 4.0, 5.0]。
   **本批不改语义**（方向类决策，交 maintainer）；差异钉在 `GridPaddingSemanticsTests`，登记见 contract-register。
+
+## 批 20：去畸变「内容不丢」（不再裁掉四边）
+
+真机实测反馈「**最下面给裁切掉了一部分（是 UVDoc 干的）**」。批 19 只读 spike 定位并验证修法：
+
+- **根因**：UVDoc 输出的网格坐标范围**只覆盖源图一个子矩形**（各边内缩 1.3%–6.0%）；
+  而重采样画布仍按「输出尺寸 = 源图尺寸」铺满 ⇒ 源图四条边条从未被采样。
+  实测产品路径（`-03-rectified` → UVDoc）上 **9.4%–14.1% 的源图像素从未被采样**
+  （paper-1344 左 6.01% / 下 4.83%；notice-1343 合计 14.1%）。「画布 = 源图尺寸」只是放大器。
+- **Core 新增修复（FIX-A）**：`Geometry/SourceCoveringGrid.swift` 的
+  `NormalizedSampleGrid.extendedToCoverSource()` —— 沿边界斜率**线性外推**网格直到覆盖整幅源图，
+  再**按轴仿射归一化**到恰好 `[-1, 1]²`，照旧走 `GridResampler.resample`。
+  **不新增第二份重采样实现**（本文件只做网格坐标数学，不采样像素）。
+  - **no-op 安全**：网格已覆盖 `[-1, 1]²`（恒等网格、铺满的网格）→ 原样返回；
+    非有限值 / 零跨度（单点、共线）→ 原样返回。
+  - **效果**：四边丢失量 → **0.0 px**；只去掉原有 1.05–1.11× 的内缩放大（采样比例还原 ~1:1），
+    内边形变形状不变、锐度不降反升、耗时几乎不增。
+- **接线**：去畸变路径——APP 自测页 `App/Dev/DewarpSelfTestRunner.swift` 的全分辨率重采样前先
+  `grid.extendedToCoverSource()`。**生产路径待接**：`ScanPipeline.makeGrid` → `PageDewarping.samplingGrid`
+  产出的是 `SampleGrid`（归一化 `[0,1]`，**尚无像素消费者**），等该网格落像素那一处再接同一入口。
+- **不误伤透视矫正**：`DocumentRectifier` 的网格**本就该按四边形铺满**，本批**未改动**、也不调用本入口。
+- **契约**：`SourceCoveringGridTests`（内容不丢正向 + 修复前 = 0 的反向锚 + 内部几何逐点残差 = 0 +
+  no-op + 退化）；Core 用例数下限 95 → **103**。

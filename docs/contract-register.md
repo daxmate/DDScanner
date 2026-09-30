@@ -58,7 +58,7 @@ CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源
 
 `swift test` 在**一条用例都没跑**时退出码仍是 0 —— `--filter` 匹配 0 条（批 1 教训）、测试 target 被改名、扫不到用例文件都会这样。**只看退出码 = 假绿**。
 
-CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 95 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
+CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 103 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
 
 ### SPM 包与测试 target 零警告（G1 补齐）
 
@@ -69,6 +69,24 @@ CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scr
 - release 额外传 `-Xswiftc -enable-testing`：`swift build` 在 release 下不给库 target 传该 flag，`@testable import` 会编译失败（`swift test` 自带该行为）；只影响可测性，不改变诊断口径。
 - CI 落点：`ci.yml` job `core-tests` 的**首个 step** —— debug 构建产物与后续三个 `swift test` step 共用 `.build`，净增 ≈ release 一轮。
 - 自证（双向）：把 `Sources/DDScannerCore/Tests/DDScannerCoreTests/BackgroundExecutionTests.swift` 还原为修复前（两处 `!Thread.isMainThread`）→ `packages` 必须红（debug 与 release 都命中）；修复后必须绿。
+
+### 去畸变「覆盖整幅源图」（批 20，**行为变更：不再裁掉边条**）
+
+上游 UVDoc 输出的网格坐标范围**只覆盖源图一个子矩形**（各边内缩 1.3%–6.0%），而重采样画布按
+「输出尺寸 = 源图尺寸」铺满 ⇒ 源图四条边条从未被采样（实测产品路径上 9.4%–14.1% 的像素丢失）。
+
+- **产品语义变更**：去畸变重采样前先把网格扩展成**覆盖整幅源图 `[-1, 1]²`** ——
+  `NormalizedSampleGrid.extendedToCoverSource()`（`Geometry/SourceCoveringGrid.swift`）：
+  沿边界斜率线性外推 → 按轴仿射归一化到恰好 `[-1, 1]²`，再照旧走 `GridResampler.resample`。
+  结果是**输出不再裁掉四边**、且不再把内缩子矩形放大（采样比例还原为 ~1:1）。
+- **不新增第二份重采样实现**：本文件只做网格坐标数学，采样仍只有 `GridResampler` 一个入口。
+- **安全边界**：网格**已覆盖 `[-1, 1]²`**（恒等网格、铺满的透视矫正网格）→ **原样返回（no-op）**；
+  非有限值 / 零跨度（单点、共线）→ 原样返回。
+- **不误伤透视矫正**：`DocumentRectifier.samplingGrid`（网格本就该按四边形铺满）**未被改动**，
+  也不调用本入口；本次只接去畸变路径。
+- 契约：`SourceCoveringGridTests`（`Tests/DDScannerCoreTests/SourceCoveringGridTests.swift`）——
+  内容不丢（正向 + 修复前 = 0 的反向锚）/ 内部几何不变（逐点残差 = 0）/ no-op / 退化。
+- 真机与端到端数字见 `memory/DDScanner/surveys/`（批 20 报告）。
 
 ### 越界填充语义（批 10 P1，**有意与上游分歧，已钉死**）
 

@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           swift test --package-path Sources/DDScannerCore 2>&1 | tee "${RUNNER_TEMP:-/tmp}/core-tests.log"
-          bash scripts/check-test-signal.sh "${RUNNER_TEMP:-/tmp}/core-tests.log" 95 "DDScannerCore 单测"
+          bash scripts/check-test-signal.sh "${RUNNER_TEMP:-/tmp}/core-tests.log" 103 "DDScannerCore 单测"
       - name: 契约测试（G3/G4/G5/G6）
         run: |
           set -euo pipefail

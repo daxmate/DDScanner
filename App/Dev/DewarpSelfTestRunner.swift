@@ -224,7 +224,15 @@
             } catch {
                 throw DewarpSelfTestError.imageConversionFailed
             }
-            let dewarped = GridResampler.resample(grid: grid, source: fullImage)
+            // 批 20：模型网格常只覆盖源图一个子矩形（内缩 1.3%–6.0%），直接按源图尺寸重采样会裁掉四边
+            // （大象实测「最下面给裁切掉了一部分」）。先扩展成覆盖整幅源图 [-1,1]² 的网格再重采样；
+            // 网格已覆盖时该调用是无副作用 no-op（恒等 / 铺满的网格逐点不变）。
+            let coveringGrid = grid.extendedToCoverSource()
+            AppLog.debug(
+                "去畸变网格覆盖整幅源图：\(grid.columns)×\(grid.rows) → \(coveringGrid.columns)×\(coveringGrid.rows)",
+                category: .dewarp
+            )
+            let dewarped = GridResampler.resample(grid: coveringGrid, source: fullImage)
             let resample = (CFAbsoluteTimeGetCurrent() - resampleStart) * 1000
             guard let dewarpedImage = FloatImageConverter.makeCGImage(from: dewarped) else {
                 throw DewarpSelfTestError.imageRenderFailed
@@ -246,7 +254,7 @@
                 rectifiedSize: rectifiedSize,
                 iterations: runs,
                 inputSize: "\(descriptor.inputWidth)×\(descriptor.inputHeight)",
-                gridSize: "\(grid.columns)×\(grid.rows)",
+                gridSize: "\(grid.columns)×\(grid.rows) → \(coveringGrid.columns)×\(coveringGrid.rows)（覆盖整幅源图）",
                 preprocessMilliseconds: preprocess,
                 inferenceMinimumMilliseconds: sorted.first ?? 0,
                 inferenceMedianMilliseconds: sorted[sorted.count / 2],
