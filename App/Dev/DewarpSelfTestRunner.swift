@@ -2,6 +2,9 @@
 //
 // 这里只做「把已有后端跑起来并如实汇报」的事：不构造任何实现（依赖由组合根经 Environment 注入），
 // 也不做相机/拍摄——那是后续批次。
+//
+// 图像来源有两处：内置样例（bundle）与相册照片（PhotosPicker）。两者都经 `DevPhotoLoader`
+// 读入，再走**完全同一条**管线（预处理 → N 次推理计时 → 全分辨率重采样）。
 #if DEBUG
     import CoreGraphics
     import CoreML
@@ -15,6 +18,14 @@
         var modelStatus: String
         var computeUnits: String
         var device: String
+        /// 图像来源（内置样例 / 相册照片）。
+        var sourceLabel: String
+        /// 源图像素尺寸（应用 EXIF 方向后）。
+        var sourceSize: String
+        /// 实际读入尺寸（超上限时含「已降采样」说明）。
+        var loadedSize: String
+        /// 读入耗时（毫秒）。
+        var loadMilliseconds: Double
         var iterations: Int
         var inputSize: String
         var gridSize: String
@@ -33,30 +44,44 @@
         case imageConversionFailed
         case imageRenderFailed
         case backendMissing
+        case photoDataMissing
 
         var description: String {
             switch self {
             case .sampleImageMissing: return "bundle 内找不到样例图 DevSampleDocument（检查 Resources/ 是否入库）"
-            case .imageConversionFailed: return "样例图转换 Float32 失败"
+            case .imageConversionFailed: return "图片转换 Float32 失败"
             case .imageRenderFailed: return "去畸变结果转 CGImage 失败"
             case .backendMissing: return "组合根未装配去畸变后端（模型不可用）"
+            case .photoDataMissing: return "相册条目取不到图片数据（可能是 iCloud 未下载完成或条目已失效）"
             }
         }
     }
 
     @MainActor
     enum DewarpSelfTestRunner {
-        /// 样例图资源名（带扩展名，避免 `UIImage(named:)` 猜扩展名失败）。
+        /// 样例图资源名（带扩展名，便于报错文案定位）。
         static let sampleResource = "DevSampleDocument.jpg"
+        private static let sampleResourceBaseName = "DevSampleDocument"
+
+        /// 读入内置样例图——与相册照片走同一条读入路径（含降采样与耗时口径）。
+        static func loadSamplePhoto() throws -> DevPhotoLoadResult {
+            guard let url = Bundle.main.url(forResource: sampleResourceBaseName, withExtension: "jpg") else {
+                throw DewarpSelfTestError.sampleImageMissing
+            }
+            return try DevPhotoLoader.load(data: Data(contentsOf: url))
+        }
+
         /// 跑一次完整自测：预处理 → N 次推理（计时）→ 全分辨率重采样 → 组装报告。
         static func run(
+            photo: DevPhotoLoadResult,
+            sourceLabel: String,
             predictor: GridPredicting,
             descriptor: DewarpModelDescriptor,
             modelStatus: String,
             computeUnits: String,
             iterations: Int
         ) throws -> DewarpSelfTestReport {
-            guard let original = UIImage(named: sampleResource) else { throw DewarpSelfTestError.sampleImageMissing }
+            let original = UIImage(cgImage: photo.image)
 
             let preprocessStart = CFAbsoluteTimeGetCurrent()
             let input = try original.floatImage(width: descriptor.inputWidth, height: descriptor.inputHeight)
@@ -89,6 +114,10 @@
                 modelStatus: modelStatus,
                 computeUnits: computeUnits,
                 device: DeviceDescription.current,
+                sourceLabel: sourceLabel,
+                sourceSize: photo.sourceSizeText,
+                loadedSize: photo.loadedSizeText,
+                loadMilliseconds: photo.loadMilliseconds,
                 iterations: runs,
                 inputSize: "\(descriptor.inputWidth)×\(descriptor.inputHeight)",
                 gridSize: "\(grid.columns)×\(grid.rows)",

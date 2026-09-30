@@ -25,6 +25,7 @@
 		6C03AC5B321EE2A033CAAA83 /* DewarpSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */; };
 		8E79C245076E9DFF04A6B8EA /* RepoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB542988F91A47B2FE31CCA /* RepoLayout.swift */; };
 		910B81C0D7848283FDA3E5F8 /* DevSampleDocument.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8A3FB536ED2433B9033364A2 /* DevSampleDocument.jpg */; };
+		D6F5CA911BDAC543B7253E92 /* DevPhotoLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40BA003B539A606E9DD5D589 /* DevPhotoLoader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +48,7 @@
 		2270B00217D9D79C7EF1CE90 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		31BBCCCA60F30A3E1858254A /* UVDocGrid_fp16.mlpackage */ = {isa = PBXFileReference; path = UVDocGrid_fp16.mlpackage; sourceTree = "<group>"; };
 		3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DewarpSelfTestView.swift; sourceTree = "<group>"; };
+		40BA003B539A606E9DD5D589 /* DevPhotoLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevPhotoLoader.swift; sourceTree = "<group>"; };
 		4410D0DEDDCBC116347FAB24 /* ContractRegisterContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContractRegisterContractTests.swift; sourceTree = "<group>"; };
 		441A776ED52E0B1EB02F5B2C /* DDScannerVision */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerVision; path = Sources/DDScannerVision; sourceTree = SOURCE_ROOT; };
 		4E30C08A2D1C3073AAB50F71 /* DDScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DDScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +81,7 @@
 		21CC5DF4647A77D95754432E /* Dev */ = {
 			isa = PBXGroup;
 			children = (
+				40BA003B539A606E9DD5D589 /* DevPhotoLoader.swift */,
 				0C395ABFBEE1AF928F4281D5 /* DewarpSelfTestRunner.swift */,
 				3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */,
 			);
@@ -289,6 +292,7 @@
 				3C44DCE6C994E05B2FE38289 /* AppCompositionRoot.swift in Sources */,
 				45EE6582662B5D1995B3DFD9 /* ContentView.swift in Sources */,
 				2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */,
+				D6F5CA911BDAC543B7253E92 /* DevPhotoLoader.swift in Sources */,
 				24A8F1892BA2C623963F9CB8 /* DewarpSelfTestRunner.swift in Sources */,
 				6C03AC5B321EE2A033CAAA83 /* DewarpSelfTestView.swift in Sources */,
 				0949B067BA79062698E9E3F2 /* UVDocGrid_fp16.mlpackage in Sources */,
