@@ -38,6 +38,9 @@
         @State private var pickerItem: PhotosPickerItem?
         /// 检测框叠加图（在主线程画好后存起来，避免每次刷新重绘）。
         @State private var overlayImage: UIImage?
+        /// 纸张增强选择（去折痕 / 提白 / 换纸色）——改档后按「重跑」重算全分辨率结果。
+        @State private var enhanceWhiteness: PaperWhitenessChoice = .conservative
+        @State private var enhanceColor: PaperColorPreset = .white
 
         /// 推理次数（自测页固定 30 次，取 min/median/max）。
         private let iterations = 30
@@ -51,6 +54,7 @@
                     if let report, !isRunning {
                         metricsBlock(report)
                         stageBlock(report)
+                        paperBlock(report)
                     } else if let failure, !isRunning {
                         failureBlock(failure)
                     } else {
@@ -174,6 +178,44 @@
             .frame(maxWidth: .infinity, alignment: .leading)
         }
 
+        /// 纸张增强块：档位切换 + 全分辨率结果 + 各档并列预览。
+        private func paperBlock(_ report: DewarpSelfTestReport) -> some View {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("纸张增强（去折痕 / 提白 / 换纸色）").font(.headline)
+                Picker("白度", selection: $enhanceWhiteness) {
+                    ForEach(PaperWhitenessChoice.allCases) { choice in
+                        Text(choice.title).tag(choice)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Picker("纸色", selection: $enhanceColor) {
+                    ForEach(PaperColorPreset.allCases, id: \.rawValue) { preset in
+                        Text(preset.displayName).tag(preset)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("当前档：\(report.paperEnhanceTitle) · 全分辨率耗时 \(milliseconds(report.paperEnhanceMilliseconds))（改档位后按「重跑」重算）")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Image(uiImage: UIImage(cgImage: report.paperEnhancedImage))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: stageHeight)
+                    .border(Color.secondary.opacity(0.4))
+                Text("各档并列（关闭 / 255 / 310 × 白 / 米白 / 暖黄）").font(.caption).bold()
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                    ForEach(report.paperEnhancePreviews) { preview in
+                        VStack(spacing: 2) {
+                            Image(uiImage: UIImage(cgImage: preview.image))
+                                .resizable()
+                                .scaledToFit()
+                                .border(Color.secondary.opacity(0.3))
+                            Text(preview.title).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+
         private func failureBlock(_ message: String) -> some View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("未能完成自测").font(.headline).foregroundStyle(.red)
@@ -245,6 +287,7 @@
             let device = DeviceDescription.current
             let iterations = iterations
             let isPicked = source.isPicked
+            let paperSelection = PaperEnhanceSelection(whiteness: enhanceWhiteness, color: enhanceColor)
 
             task = Task.detached(priority: .userInitiated) {
                 let photo: DevPhotoLoadResult
@@ -284,6 +327,7 @@
                         computeUnits: computeUnits,
                         device: device,
                         iterations: iterations,
+                        paperSelection: paperSelection,
                         progress: { stage in
                             Task { @MainActor in self.stage = stage }
                         }

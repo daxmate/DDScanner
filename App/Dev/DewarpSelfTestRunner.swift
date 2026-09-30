@@ -25,6 +25,7 @@
         case preprocessing
         case inference(completed: Int, total: Int)
         case resampling
+        case enhancing
         case finished
 
         /// 一行进度文案。
@@ -37,9 +38,58 @@
             case .preprocessing: return "预处理（缩放到输入）"
             case let .inference(completed, total): return "推理 \(completed)/\(total)"
             case .resampling: return "全分辨率重采样"
+            case .enhancing: return "纸张增强（去折痕 / 提白 / 换纸色）"
             case .finished: return "完成"
             }
         }
+    }
+
+    /// 白度档（自测页可切换）。`nil` = 关闭（原图）。
+    enum PaperWhitenessChoice: String, CaseIterable, Identifiable {
+        case off
+        case conservative
+        case maximum
+
+        var id: String { rawValue }
+
+        /// 一行展示名。
+        var title: String {
+            switch self {
+            case .off: return "关闭"
+            case .conservative: return "白度 255"
+            case .maximum: return "白度 310"
+            }
+        }
+
+        /// 白度值；`nil` = 关闭。
+        var whiteness: Double? {
+            switch self {
+            case .off: return nil
+            case .conservative: return PaperEnhanceOptions.defaultWhiteness
+            case .maximum: return PaperEnhanceOptions.maximumWhiteness
+            }
+        }
+    }
+
+    /// 自测页当前选择的增强档（白度 × 纸色）。
+    struct PaperEnhanceSelection: Equatable {
+        var whiteness: PaperWhitenessChoice = .conservative
+        var color: PaperColorPreset = .white
+
+        /// 对应的 Core 选项；关闭时为 `nil`（逐字节 no-op）。
+        var options: PaperEnhanceOptions? {
+            guard let value = whiteness.whiteness else { return nil }
+            return PaperEnhanceOptions(whiteness: value, paperColor: color.paperColor)
+        }
+
+        var title: String { "\(whiteness.title) · \(color.displayName)" }
+    }
+
+    /// 一档增强预览（并列对比用，已降采样到显示尺寸）。
+    struct PaperEnhancePreview: Identifiable {
+        let title: String
+        let image: CGImage
+        var id: String { title }
     }
 
     /// 一次自测的完整结果（视图只负责展示；图像一律 `CGImage`，`UIImage` 由视图在主线程包）。
@@ -75,6 +125,14 @@
         var originalImage: CGImage
         var rectifiedImage: CGImage
         var dewarpedImage: CGImage
+        /// 纸张增强：当前选择的档位说明。
+        var paperEnhanceTitle: String
+        /// 全分辨率增强耗时（毫秒）。
+        var paperEnhanceMilliseconds: Double
+        /// 全分辨率增强结果（当前选择档；关闭时 = 去畸变结果）。
+        var paperEnhancedImage: CGImage
+        /// 各档位预览（关闭 / 255 / 310 × 白 / 米白 / 暖黄），降采样后并列展示。
+        var paperEnhancePreviews: [PaperEnhancePreview]
         /// 检测到的四角（归一化）；nil = 未检测到（视图据此画叠加框）。
         var detectionQuad: DocumentQuad?
     }
@@ -129,6 +187,7 @@
             computeUnits: String,
             device: String,
             iterations: Int,
+            paperSelection: PaperEnhanceSelection = PaperEnhanceSelection(),
             progress: @Sendable (DewarpSelfTestStage) -> Void = { _ in }
         ) throws -> DewarpSelfTestReport {
             try Task.checkCancellation()
@@ -237,6 +296,19 @@
             guard let dewarpedImage = FloatImageConverter.makeCGImage(from: dewarped) else {
                 throw DewarpSelfTestError.imageRenderFailed
             }
+
+            // ⑦ 纸张增强（去折痕 / 提白 / 换纸色）：全分辨率一档 + 各档位降采样预览并列。
+            progress(.enhancing)
+            let enhanceStart = CFAbsoluteTimeGetCurrent()
+            let paperOptions = paperSelection.options
+            let enhanced = paperOptions == nil
+                ? dewarped
+                : PaperEnhancer.enhance(dewarped, options: paperOptions)
+            guard let enhancedImage = FloatImageConverter.makeCGImage(from: enhanced) else {
+                throw DewarpSelfTestError.imageRenderFailed
+            }
+            let previews = paperEnhancePreviews(source: dewarpedImage)
+            let enhanceMilliseconds = (CFAbsoluteTimeGetCurrent() - enhanceStart) * 1000
             progress(.finished)
 
             let sorted = timings.sorted()
@@ -264,8 +336,36 @@
                 originalImage: photo.image,
                 rectifiedImage: rectifiedImage,
                 dewarpedImage: dewarpedImage,
+                paperEnhanceTitle: paperSelection.title,
+                paperEnhanceMilliseconds: enhanceMilliseconds,
+                paperEnhancedImage: enhancedImage,
+                paperEnhancePreviews: previews,
                 detectionQuad: decision.detection?.quad
             )
+        }
+
+        /// 各档位预览：先把去畸变结果降采样到显示尺寸，再逐档增强。
+        /// 全分辨率那一档单独计时（这里只为并列对比，输入分辨率更低、耗时不作产品口径）。
+        private static func paperEnhancePreviews(source: CGImage) -> [PaperEnhancePreview] {
+            let longSide: CGFloat = 420
+            let longest = CGFloat(max(source.width, source.height))
+            let scale = longest > longSide ? longSide / longest : 1
+            let width = max(1, Int((CGFloat(source.width) * scale).rounded()))
+            let height = max(1, Int((CGFloat(source.height) * scale).rounded()))
+            guard let small = try? FloatImageConverter.rgb(from: source, width: width, height: height) else {
+                return []
+            }
+            var previews = [PaperEnhancePreview]()
+            for whiteness in PaperWhitenessChoice.allCases {
+                for color in PaperColorPreset.allCases {
+                    let selection = PaperEnhanceSelection(whiteness: whiteness, color: color)
+                    let options = selection.options
+                    let enhanced = options == nil ? small : PaperEnhancer.enhance(small, options: options)
+                    guard let image = FloatImageConverter.makeCGImage(from: enhanced) else { continue }
+                    previews.append(PaperEnhancePreview(title: selection.title, image: image))
+                }
+            }
+            return previews
         }
     }
 #endif
