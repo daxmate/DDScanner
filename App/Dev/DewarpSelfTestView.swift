@@ -41,6 +41,8 @@
         /// 纸张增强选择（去折痕 / 提白 / 换纸色）——改档后按「重跑」重算全分辨率结果。
         @State private var enhanceWhiteness: PaperWhitenessChoice = .conservative
         @State private var enhanceColor: PaperColorPreset = .white
+        /// 点按某张图后进入全屏查看（nil = 未打开）。
+        @State private var previewItem: ImagePreviewItem?
 
         /// 推理次数（自测页固定 30 次，取 min/median/max）。
         private let iterations = 30
@@ -67,6 +69,7 @@
             }
             .navigationTitle("去畸变自测")
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(item: $previewItem) { FullScreenImageViewer(item: $0) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
@@ -142,6 +145,9 @@
         private func stageBlock(_ report: DewarpSelfTestReport) -> some View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("分阶段对比").font(.headline)
+                Text("点按任意图片可全屏放大查看细节")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 HStack(alignment: .top, spacing: 8) {
                     stageCell(
                         "①", "原图", image: UIImage(cgImage: report.originalImage),
@@ -166,16 +172,28 @@
         }
 
         private func stageCell(_ index: String, _ title: String, image: UIImage, detail: String) -> some View {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(index) \(title)").font(.caption).bold()
+            let name = "\(index) \(title)"
+            let pixels = Self.pixelSize(of: image)
+            return VStack(alignment: .leading, spacing: 4) {
+                Text(name).font(.caption).bold()
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: stageHeight)
                     .border(Color.secondary.opacity(0.4))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        previewItem = ImagePreviewItem(image: image, title: name, detail: "\(pixels) · \(detail)")
+                    }
                 Text(detail).font(.caption2).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        /// 图像的真实像素尺寸（`UIImage(cgImage:)` 未二次降采样，尺寸即像素）。
+        private static func pixelSize(of image: UIImage) -> String {
+            let size = image.cgImage.map { CGSize(width: $0.width, height: $0.height) } ?? image.size
+            return "\(Int(size.width.rounded()))×\(Int(size.height.rounded()))"
         }
 
         /// 纸张增强块：档位切换 + 全分辨率结果 + 各档并列预览。
@@ -201,18 +219,42 @@
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: stageHeight)
                     .border(Color.secondary.opacity(0.4))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        previewItem = ImagePreviewItem(
+                            image: UIImage(cgImage: report.paperEnhancedImage),
+                            title: "⑤ 纸张增强（全分辨率）",
+                            detail: "\(Self.pixelSize(of: UIImage(cgImage: report.paperEnhancedImage)))"
+                                + " · 当前档 \(report.paperEnhanceTitle)"
+                                + " · \(milliseconds(report.paperEnhanceMilliseconds))"
+                        )
+                    }
                 Text("各档并列（关闭 / 255 / 310 × 白 / 米白 / 暖黄）").font(.caption).bold()
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                     ForEach(report.paperEnhancePreviews) { preview in
-                        VStack(spacing: 2) {
-                            Image(uiImage: UIImage(cgImage: preview.image))
-                                .resizable()
-                                .scaledToFit()
-                                .border(Color.secondary.opacity(0.3))
-                            Text(preview.title).font(.caption2).foregroundStyle(.secondary)
-                        }
+                        previewCell(preview)
                     }
                 }
+            }
+        }
+
+        /// 网格里的一档预览（可点开全屏）。
+        private func previewCell(_ preview: PaperEnhancePreview) -> some View {
+            let image = UIImage(cgImage: preview.image)
+            return VStack(spacing: 2) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .border(Color.secondary.opacity(0.3))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        previewItem = ImagePreviewItem(
+                            image: image,
+                            title: "⑤ 预览 · \(preview.title)",
+                            detail: Self.pixelSize(of: image)
+                        )
+                    }
+                Text(preview.title).font(.caption2).foregroundStyle(.secondary)
             }
         }
 

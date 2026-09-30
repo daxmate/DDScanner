@@ -52,7 +52,8 @@ Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
 - **Dewarp 落地 Core ML 后端**：`CoreMLDewarpBackend` 装载 `Models/UVDocGrid_fp16.mlpackage` 并推理；
   模型缺失/加载失败**只抛错不崩**，组合根降级为 `nil`。
 - **App 新增 DEBUG 自测页**：`App/Dev/`（`DewarpSelfTestView` + 运行器），入口在首页工具栏；
-  用量与判读见 `docs/device-test-uvdoc.md`。该页只读 Environment，不构造实现。
+  用量与判读见 `docs/device-test-uvdoc.md`。该页只读 Environment，不构造实现；点按任意图片可经
+  `FullScreenImageViewer` 全屏放大（捏合缩放 / 双击放大 / 拖动平移）。
 - **仍未接管线**：`ScanFrame` 不含像素，`PageDewarping`（帧几何 → 网格）与像素型模型还差一层适配器；
   相机/拍摄/边缘检测/四角微调仍属后续批次。
 
