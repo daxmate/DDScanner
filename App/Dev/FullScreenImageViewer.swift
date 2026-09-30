@@ -64,12 +64,24 @@
 
         // MARK: 视图层
 
+        // 放大走「布局尺寸」而不是 `scaleEffect`。
+        //
+        // 为什么：`scaleEffect` 作用在**已按屏幕尺寸栅格化**的位图上，放大到 1:1 以上必然发虚
+        // （除非 SwiftUI 恰好重绘）；把 frame 设为「适配尺寸 × 倍率」后，SwiftUI 每帧按目标矩形
+        // 从**原始全分辨率 CGImage** 重绘 —— 放大到 ≈1:1（原生像素）时即原图本身，8× 也只是从
+        // 原图插值，不额外丢信息。
+        //
+        // 代价：捏合过程中每帧按新尺寸重绘一次（单张源 CGImage，**不产生全尺寸中间拷贝**）；
+        // 相比 `scaleEffect` 的 GPU 纹理拉伸更重，但源图只有一份、无额外常驻内存。
+        // 未选方案：② UIScrollView + UIImageView 会重写全部手势/命中语义（与「语义零变化」红线
+        // 冲突，回归面大）；③ 视口裁切会引入多份按视口变化的位图（内存与实现复杂度都更高）。
         private func imageLayer(in container: CGSize) -> some View {
-            Image(uiImage: item.image)
+            let fitted = fittedSize(in: container)
+            return Image(uiImage: item.image)
                 .resizable()
+                .interpolation(.high)
                 .scaledToFit()
-                .frame(width: container.width, height: container.height)
-                .scaleEffect(scale)
+                .frame(width: fitted.width * scale, height: fitted.height * scale)
                 .offset(offset)
                 .accessibilityLabel(item.title)
                 .allowsHitTesting(false)
