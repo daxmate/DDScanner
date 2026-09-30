@@ -1,36 +1,57 @@
-// 开发用「去畸变自测页」——今晚拿真机看数字的页面（仅 DEBUG；步骤见 docs/device-test-uvdoc.md）。
+// 开发用「去畸变自测页」——真机看数字与**分阶段**效果（仅 DEBUG；步骤见 docs/device-test-uvdoc.md）。
 //
-// 图像来源两处：进页面先用**内置样例**自动跑一次；右上角「选照片」走 `PhotosPicker`
-// （系统进程外选择器，不需要相册权限弹窗），选中后跑**同一条管线**并刷新全部数字与对比图。
+// ⚠️ 线程纪律（P0，2026-09-30）：整条管线**不在主线程**跑（`Task.detached(priority: .userInitiated)`），
+// 结果经 `@MainActor` 回填；每次新任务先 `cancel()` 上一个（重跑 / 换图 / 离开页面），取消后不回填过期结果。
+// 界面按阶段显示进度（载入 → 检测 → 矫正 → 预处理 → 推理 n/N → 重采样），不再无声占住。
 //
-// 只读 Environment（依赖由组合根装配）：模型不可用时**优雅降级**为一行原因，不崩、不留白屏；
-// 选图失败（未选 / 读取失败 / 解码失败）同样只显示原因。
+// 管线（批 8 接上）：原图 → Vision 文档检测 → 透视矫正 + 裁切（全分辨率）→ UVDoc 去畸变。
+// 只读 Environment（依赖由组合根装配）：模型不可用时**优雅降级**为一行原因，不崩、不留白屏。
 #if DEBUG
+    import CoreGraphics
     import DDScannerCore
     import DDScannerDewarp
     import PhotosUI
     import SwiftUI
 
     struct DewarpSelfTestView: View {
+        /// 图像来源。
+        private enum LoadSource {
+            case sample
+            case loaded(DevPhotoLoadResult)
+            case picked(PhotosPickerItem)
+
+            var isPicked: Bool {
+                if case .sample = self { return false }
+                return true
+            }
+        }
+
         @Environment(\.scanEnvironment) private var scanEnvironment
         @State private var report: DewarpSelfTestReport?
         @State private var failure: String?
         @State private var isRunning = false
+        @State private var stage: DewarpSelfTestStage = .idle
+        /// 当前在跑的后台任务（重跑 / 换图 / 离页时取消）。
+        @State private var task: Task<Void, Never>?
         /// 已读入的相册照片（nil = 用内置样例）。
         @State private var pickedPhoto: DevPhotoLoadResult?
         @State private var pickerItem: PhotosPickerItem?
+        /// 检测框叠加图（在主线程画好后存起来，避免每次刷新重绘）。
+        @State private var overlayImage: UIImage?
 
         /// 推理次数（自测页固定 30 次，取 min/median/max）。
         private let iterations = 30
+        /// 分阶段图的显示高度（让两行对齐）。
+        private let stageHeight: CGFloat = 170
 
         var body: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     statusBlock
-                    if let report {
+                    if let report, !isRunning {
                         metricsBlock(report)
-                        previewBlock(report)
-                    } else if let failure {
+                        stageBlock(report)
+                    } else if let failure, !isRunning {
                         failureBlock(failure)
                     } else {
                         runningBlock
@@ -56,11 +77,14 @@
                 }
             }
             .task {
-                if report == nil, failure == nil { run() }
+                if report == nil, failure == nil, !isRunning { run() }
             }
             .onChange(of: pickerItem) { _, item in
                 guard let item else { return }
-                loadPickedPhoto(item)
+                start(source: .picked(item))
+            }
+            .onDisappear {
+                task?.cancel()
             }
         }
 
@@ -83,7 +107,9 @@
                 row("图像来源", report.sourceLabel)
                 row("源图尺寸", report.sourceSize)
                 row("载入后尺寸", report.loadedSize)
-                row("载入耗时", String(format: "%.2f ms", report.loadMilliseconds))
+                row("载入耗时", milliseconds(report.loadMilliseconds))
+                detectionRow(report)
+                row("裁切结果", report.rectifiedSize)
                 row("输入尺寸", report.inputSize)
                 row("输出网格", report.gridSize)
                 row("推理次数", "\(report.iterations)")
@@ -93,23 +119,59 @@
                     report.inferenceMedianMilliseconds,
                     report.inferenceMaximumMilliseconds
                 ))
-                row("单次均耗时（含首跑）", String(format: "%.2f ms", report.inferenceTotalMilliseconds / Double(report.iterations)))
-                row("预处理（缩放到输入）", String(format: "%.2f ms", report.preprocessMilliseconds))
-                row("全分辨率重采样", String(format: "%.2f ms", report.resampleMilliseconds))
+                row("单次均耗时（含首跑）", milliseconds(report.inferenceTotalMilliseconds / Double(report.iterations)))
             }
             .font(.footnote)
         }
 
-        private func previewBlock(_ report: DewarpSelfTestReport) -> some View {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("校正前后对比（左：原图，右：重采样）").font(.headline)
+        /// 检测状态单列一行：未检测到（已回退）用橙色标出来。
+        private func detectionRow(_ report: DewarpSelfTestReport) -> some View {
+            HStack(alignment: .firstTextBaseline) {
+                Text("检测状态").foregroundStyle(.secondary)
+                Spacer(minLength: 12)
+                Text("\(report.detectionStatus) · \(milliseconds(report.detectionMilliseconds))")
+                    .multilineTextAlignment(.trailing)
+                    .foregroundStyle(report.detectionStatus.hasPrefix("已检测到") ? Color.secondary : Color.orange)
+            }
+        }
+
+        private func stageBlock(_ report: DewarpSelfTestReport) -> some View {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("分阶段对比").font(.headline)
                 HStack(alignment: .top, spacing: 8) {
-                    Image(uiImage: report.originalImage).resizable().scaledToFit()
-                        .border(Color.secondary.opacity(0.4))
-                    Image(uiImage: report.dewarpedImage).resizable().scaledToFit()
-                        .border(Color.secondary.opacity(0.4))
+                    stageCell(
+                        "①", "原图", image: UIImage(cgImage: report.originalImage),
+                        detail: "载入 \(milliseconds(report.loadMilliseconds))"
+                    )
+                    stageCell(
+                        "②", "检测框叠加", image: overlayImage ?? UIImage(cgImage: report.originalImage),
+                        detail: "检测 \(milliseconds(report.detectionMilliseconds))"
+                    )
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    stageCell(
+                        "③", "裁切 + 透视矫正", image: UIImage(cgImage: report.rectifiedImage),
+                        detail: "矫正 \(milliseconds(report.rectificationMilliseconds))"
+                    )
+                    stageCell(
+                        "④", "去畸变后", image: UIImage(cgImage: report.dewarpedImage),
+                        detail: "预处理 \(milliseconds(report.preprocessMilliseconds)) + 重采样 \(milliseconds(report.resampleMilliseconds))"
+                    )
                 }
             }
+        }
+
+        private func stageCell(_ index: String, _ title: String, image: UIImage, detail: String) -> some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(index) \(title)").font(.caption).bold()
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: stageHeight)
+                    .border(Color.secondary.opacity(0.4))
+                Text(detail).font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         private func failureBlock(_ message: String) -> some View {
@@ -122,12 +184,12 @@
         private var runningBlock: some View {
             HStack(spacing: 8) {
                 ProgressView()
-                Text("正在跑 \(iterations) 次推理…").font(.footnote)
+                Text(stage.text).font(.footnote)
             }
         }
 
         private var footnote: some View {
-            Text("仅 DEBUG 构建包含本页。Mac 上的 2.28 ms 只是指示值，真机数字以本页为准。")
+            Text("仅 DEBUG 构建包含本页。管线在后台线程执行，界面不再被占住；Mac 上的 2.28 ms 只是指示值。")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -140,10 +202,24 @@
             }
         }
 
+        private func milliseconds(_ value: Double) -> String {
+            String(format: "%.2f ms", value)
+        }
+
         // MARK: 执行
 
         /// 跑当前来源：已选照片优先，否则内置样例（进页面自动跑的就是这条）。
         private func run() {
+            if let pickedPhoto {
+                start(source: .loaded(pickedPhoto))
+            } else {
+                start(source: .sample)
+            }
+        }
+
+        /// 启动一次自测：先取消上一个任务，再把整条管线放到后台线程。
+        private func start(source: LoadSource) {
+            task?.cancel()
             guard let environment = scanEnvironment else {
                 report = nil
                 failure = "Environment 未注入（组合根未装配）"
@@ -157,61 +233,124 @@
             }
             isRunning = true
             failure = nil
-            do {
-                let photo = try pickedPhoto ?? DewarpSelfTestRunner.loadSamplePhoto()
-                report = try DewarpSelfTestRunner.run(
-                    photo: photo,
-                    sourceLabel: pickedPhoto == nil ? "内置样例 \(DewarpSelfTestRunner.sampleResource)" : "相册照片",
-                    predictor: predictor,
-                    descriptor: .uvDoc,
-                    modelStatus: environment.dewarpStatus,
-                    computeUnits: environment.dewarpComputeUnits,
-                    iterations: iterations
-                )
-            } catch {
-                report = nil
-                failure = "\(error)"
-            }
-            isRunning = false
-        }
-
-        /// 读入相册照片（失败只显示原因，不崩）→ 用同一管线重跑。
-        private func loadPickedPhoto(_ item: PhotosPickerItem) {
-            guard let environment = scanEnvironment else {
-                report = nil
-                failure = "Environment 未注入（组合根未装配）"
-                return
-            }
-            guard let predictor = environment.gridPredictor else {
-                report = nil
-                failure = environment.dewarpStatus
-                return
-            }
-            isRunning = true
-            failure = nil
             report = nil
-            Task { @MainActor in
-                defer { isRunning = false }
+            overlayImage = nil
+            stage = .loading
+
+            // 只抓 Sendable 的片段进后台，避免把整个 Environment 带过去。
+            let detector = environment.imageDetector
+            let corrector = environment.perspectiveCorrector
+            let modelStatus = environment.dewarpStatus
+            let computeUnits = environment.dewarpComputeUnits
+            let device = DeviceDescription.current
+            let iterations = iterations
+            let isPicked = source.isPicked
+
+            task = Task.detached(priority: .userInitiated) {
+                let photo: DevPhotoLoadResult
                 do {
-                    guard let data = try await item.loadTransferable(type: Data.self) else {
-                        throw DewarpSelfTestError.photoDataMissing
+                    switch source {
+                    case .sample:
+                        photo = try DewarpSelfTestRunner.loadSamplePhoto()
+                    case let .loaded(existing):
+                        photo = existing
+                    case let .picked(item):
+                        guard let data = try await item.loadTransferable(type: Data.self) else {
+                            throw DewarpSelfTestError.photoDataMissing
+                        }
+                        photo = try DevPhotoLoader.load(data: data)
                     }
-                    let photo = try DevPhotoLoader.load(data: data)
-                    pickedPhoto = photo
-                    report = try DewarpSelfTestRunner.run(
+                    try Task.checkCancellation()
+                } catch {
+                    let message = isPicked ? "读取所选照片失败：\(error)" : "\(error)"
+                    await MainActor.run {
+                        self.overlayImage = nil
+                        self.report = nil
+                        self.failure = message
+                        self.isRunning = false
+                    }
+                    return
+                }
+
+                do {
+                    let runnerReport = try DewarpSelfTestRunner.run(
                         photo: photo,
-                        sourceLabel: "相册照片",
+                        sourceLabel: isPicked ? "相册照片" : "内置样例 \(DewarpSelfTestRunner.sampleResource)",
+                        detector: detector,
+                        corrector: corrector,
                         predictor: predictor,
                         descriptor: .uvDoc,
-                        modelStatus: environment.dewarpStatus,
-                        computeUnits: environment.dewarpComputeUnits,
-                        iterations: iterations
+                        modelStatus: modelStatus,
+                        computeUnits: computeUnits,
+                        device: device,
+                        iterations: iterations,
+                        progress: { stage in
+                            Task { @MainActor in self.stage = stage }
+                        }
                     )
+                    if Task.isCancelled { return }
+                    await MainActor.run {
+                        if isPicked { self.pickedPhoto = photo }
+                        self.overlayImage = Self.overlayImage(from: photo.image, quad: runnerReport.detectionQuad)
+                        self.report = runnerReport
+                        self.stage = .finished
+                        self.isRunning = false
+                    }
+                } catch is CancellationError {
+                    await MainActor.run { self.isRunning = false }
                 } catch {
-                    pickedPhoto = nil
-                    report = nil
-                    failure = "读取所选照片失败：\(error)"
+                    await MainActor.run {
+                        self.overlayImage = nil
+                        self.report = nil
+                        self.failure = "\(error)"
+                        self.isRunning = false
+                    }
                 }
+            }
+        }
+
+        /// 在原图上叠加检测框（缩放显示，`quad` 为归一化坐标）；`nil` 时返回原图。**主线程**执行。
+        @MainActor
+        private static func overlayImage(from image: CGImage, quad: DocumentQuad?) -> UIImage {
+            let pixelSize = CGSize(width: image.width, height: image.height)
+            let maximumDimension: CGFloat = 1400
+            let longest = max(pixelSize.width, pixelSize.height)
+            let factor = longest > maximumDimension ? maximumDimension / longest : 1
+            let target = CGSize(
+                width: max(1, (pixelSize.width * factor).rounded()),
+                height: max(1, (pixelSize.height * factor).rounded())
+            )
+            let format = UIGraphicsImageRendererFormat.default()
+            format.scale = 1
+            format.opaque = true
+            return UIGraphicsImageRenderer(size: target, format: format).image { _ in
+                UIImage(cgImage: image).draw(in: CGRect(origin: .zero, size: target))
+                guard let quad else { return }
+                let points = quad.points.map { CGPoint(x: $0.x * target.width, y: $0.y * target.height) }
+                let path = UIBezierPath()
+                path.move(to: points[0])
+                for point in points.dropFirst() { path.addLine(to: point) }
+                path.close()
+                UIColor.systemGreen.setStroke()
+                path.lineWidth = max(2, target.width * 0.005)
+                path.stroke()
+            }
+        }
+    }
+
+    @MainActor
+    enum DeviceDescription {
+        /// 机型标识 + 系统版本（自测页要把这两项显示出来，便于回截图）。
+        static var current: String {
+            "\(UIDevice.current.model) \(machineIdentifier) / \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+        }
+
+        private static var machineIdentifier: String {
+            var info = utsname()
+            uname(&info)
+            return withUnsafeBytes(of: &info.machine) { raw in
+                guard let base = raw.bindMemory(to: CChar.self).baseAddress else { return "unknown" }
+                return String(cString: base)
             }
         }
     }

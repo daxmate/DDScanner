@@ -63,3 +63,31 @@ Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
 - **图像读取下沉 Core**：`FloatImageConverter`（`CoreGraphics` + `Accelerate`/vImage）接替 App 层的
   「CGContext + 标量循环」转换；App 自测页只留一层 `UIImage` 包装。分层边界不变：Core 仍只依赖
   Foundation / CoreGraphics / Accelerate。
+
+## 批 8：前段管线（检测 → 透视矫正 → 裁切 → 摆正）
+
+真机实测说明：UVDoc 是「文档已占满帧、只差弯曲」的模型；真实场景照（名片只占画面一小块）直接
+去畸变会跑偏。故本批补上**前段**：文档检测 → 透视矫正 + 裁切 → 再交给去畸变。
+
+- **Core：检测契约 + 矫正几何**。新增 `Pipeline/ImageDocumentDetection.swift`（`DocumentDetection`
+  四角 + 置信度、`ImageDocumentDetecting` 像素型契约）与 `Geometry/DocumentRectifier.swift`
+  （四角 → 单应 → 采样网格 + 目标尺寸，`RectificationPlan`；`rectify` 走 `GridResampler` 这
+  **唯一**采样入口，不另写重采样实现）。`DocumentQuad` 补 `area` / `isConvex` / `isWithinUnitSquare`
+  / `denormalized(in:)` / `clampedToUnitSquare()`。
+- **坐标约定（写死）**：四条契约统一为「归一化坐标 ∈ [0,1]，原点在图像左上角、y 轴向下，顺序
+  TL → TR → BR → BL」；采样网格仍按 `grid_sample(align_corners=True)` 约定（-1 → 像素 0，
+  +1 → 像素 N-1）。归一化 ↔ 像素用 `align_corners` 口径（与真实图像最大偏差 <0.5 像素）。
+- **DDScannerVision：真实现检测 + 成像**。`VisionDocumentDetector` 优先
+  `VNDetectDocumentSegmentationRequest`（iOS 15+ / macOS 12+，availability 守卫），失败回退
+  `VNDetectRectanglesRequest`，两者都不中 → `ScannerError.documentNotFound`；出口把 Vision 的
+  「左下原点」翻到左上原点并钳制到单位正方形。`CoreImagePerspectiveCorrector` 增
+  `correctedImage(from:quad:scale:)`（平台成像：CGImage ↔ Float32 平面图；像素重采样仍走 Core）。
+- **App 自测页分阶段**：原图 / 检测框叠加 / 裁切+透视矫正后 / 去畸变后，每阶段单独计时。
+  **检测不到文档 → 回退整帧直接去畸变**，页面明确写「未检测到文档（已回退）」，不崩不空白。
+- **线程纪律（P0）**：整条自测管线**不在主线程**跑（视图 `Task.detached` + `@MainActor` 回填）；
+  重跑 / 换图 / 离页会 `cancel()` 上一个任务，取消后不回填过期结果；界面按阶段显示进度
+  （载入 → 检测 → 矫正 → 预处理 → 推理 n/N → 重采样）。取消与进度契约收在 Core 的
+  `StagedLoop`（逐轮检查取消 + 回报进度，本机可测）。大图守卫：源平面像素数必须
+  ≤ `GridResampler.maximumSourcePixelCount`（2^24），否则明确报错。
+- **仍未接管线**：`ScanPipeline` 的 `DocumentDetecting`（帧几何入口）仍不含像素，相机/拍摄/
+  四角微调属后续批次；本批的像素前段由自测页直接消费。

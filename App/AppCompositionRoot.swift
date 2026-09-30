@@ -9,6 +9,10 @@ import SwiftUI
 /// 视图层可消费的依赖集合。
 struct ScanEnvironment {
     let pipeline: ScanPipeline
+    /// 像素型文档检测（Vision 段分割 + 矩形回退）；检测不到时抛 `documentNotFound`。
+    let imageDetector: ImageDocumentDetecting
+    /// 透视校正 + 裁切的平台成像后端（几何在 Core）。
+    let perspectiveCorrector: CoreImagePerspectiveCorrector
     /// 去畸变网格后端（UVDoc Core ML）；**模型缺失时为 nil**，消费端必须能降级处理、不得崩。
     let gridPredictor: GridPredicting?
     /// 模型装载结果的人话描述，供开发自测页显示（成功或失败原因）。
@@ -20,9 +24,11 @@ struct ScanEnvironment {
 enum AppCompositionRoot {
     /// 唯一装配点：后端在此选择，视图层不得自行 new 任何实现。
     static func makeScanEnvironment() -> ScanEnvironment {
+        let detector = VisionDocumentDetector()
+        let corrector = CoreImagePerspectiveCorrector()
         let pipeline = ScanPipeline(
-            detector: VisionDocumentDetector(),
-            corrector: CoreImagePerspectiveCorrector(),
+            detector: detector,
+            corrector: corrector,
             dewarp: nil,
             exporter: PDFPageExporter()
         )
@@ -30,6 +36,8 @@ enum AppCompositionRoot {
         AppLog.info("扫描管线装配完成（去畸变：\(dewarpStatus)）", category: .app)
         return ScanEnvironment(
             pipeline: pipeline,
+            imageDetector: detector,
+            perspectiveCorrector: corrector,
             gridPredictor: gridPredictor,
             dewarpStatus: dewarpStatus,
             dewarpComputeUnits: dewarpComputeUnits
