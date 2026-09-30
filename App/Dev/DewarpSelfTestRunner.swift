@@ -89,6 +89,8 @@
     struct PaperEnhancePreview: Identifiable {
         let title: String
         let image: CGImage
+        /// 该档对应的选择（点开时按此在**全分辨率**上重算）。
+        let selection: PaperEnhanceSelection
         var id: String { title }
     }
 
@@ -344,6 +346,32 @@
             )
         }
 
+        /// 单档全分辨率增强：点开某一档预览时按该档重算，口径与 `run(...)` 里的全分辨率一档一致
+        /// （复用同一个 `PaperEnhancer` 入口与 `FloatImageConverter`，不另起第二实现）。
+        ///
+        /// - 关闭档（`options == nil`）= 去畸变原图，逐字节 no-op：直接返回 `source`，耗时近零。
+        /// - 返回（结果 `CGImage`，耗时毫秒）——耗时口径即 `paperEnhanceMilliseconds`。
+        static func enhanceFullResolution(
+            source: CGImage,
+            selection: PaperEnhanceSelection
+        ) throws -> (image: CGImage, milliseconds: Double) {
+            let start = CFAbsoluteTimeGetCurrent()
+            guard let options = selection.options else {
+                return (source, (CFAbsoluteTimeGetCurrent() - start) * 1000)
+            }
+            let full: FloatImage
+            do {
+                full = try FloatImageConverter.rgb(from: source, width: source.width, height: source.height)
+            } catch {
+                throw DewarpSelfTestError.imageConversionFailed
+            }
+            let enhanced = PaperEnhancer.enhance(full, options: options)
+            guard let image = FloatImageConverter.makeCGImage(from: enhanced) else {
+                throw DewarpSelfTestError.imageRenderFailed
+            }
+            return (image, (CFAbsoluteTimeGetCurrent() - start) * 1000)
+        }
+
         /// 各档位预览：先把去畸变结果降采样到显示尺寸，再逐档增强。
         /// 全分辨率那一档单独计时（这里只为并列对比，输入分辨率更低、耗时不作产品口径）。
         private static func paperEnhancePreviews(source: CGImage) -> [PaperEnhancePreview] {
@@ -362,7 +390,7 @@
                     let options = selection.options
                     let enhanced = options == nil ? small : PaperEnhancer.enhance(small, options: options)
                     guard let image = FloatImageConverter.makeCGImage(from: enhanced) else { continue }
-                    previews.append(PaperEnhancePreview(title: selection.title, image: image))
+                    previews.append(PaperEnhancePreview(title: selection.title, image: image, selection: selection))
                 }
             }
             return previews

@@ -43,6 +43,10 @@
         @State private var enhanceColor: PaperColorPreset = .white
         /// 点按某张图后进入全屏查看（nil = 未打开）。
         @State private var previewItem: ImagePreviewItem?
+        /// 「点预览 → 全分辨率重算」任务（与主管线任务分离，互不取消）。
+        @State private var previewTask: Task<Void, Never>?
+        /// 正在重算全分辨率的档位标题（非 nil → 网格该格显示加载态）。
+        @State private var enhancingPreviewTitle: String?
 
         /// 推理次数（自测页固定 30 次，取 min/median/max）。
         private let iterations = 30
@@ -92,6 +96,7 @@
             }
             .onDisappear {
                 task?.cancel()
+                previewTask?.cancel()
             }
         }
 
@@ -238,23 +243,84 @@
             }
         }
 
-        /// 网格里的一档预览（可点开全屏）。
+        /// 网格里的一档预览（可点开全屏）。点开会把该档设为当前选择，并在**全分辨率**上重算后打开查看器。
         private func previewCell(_ preview: PaperEnhancePreview) -> some View {
             let image = UIImage(cgImage: preview.image)
+            let isLoading = enhancingPreviewTitle == preview.title
             return VStack(spacing: 2) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
                     .border(Color.secondary.opacity(0.3))
+                    .overlay {
+                        if isLoading {
+                            ZStack {
+                                Color.black.opacity(0.35)
+                                ProgressView().tint(.white)
+                            }
+                            .allowsHitTesting(false)
+                        }
+                    }
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        previewItem = ImagePreviewItem(
-                            image: image,
-                            title: "⑤ 预览 · \(preview.title)",
-                            detail: Self.pixelSize(of: image)
+                    .onTapGesture { openFullResolutionPreview(preview) }
+                    .disabled(isLoading)
+                Text(preview.title).font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+
+        /// 点开某一档预览：把该档设为当前选择，在**全分辨率**上重算该档增强，再打开查看器。
+        ///
+        /// - 重算在后台线程（`Task.detached`），主线程只更新状态（加载态 / 结果），不卡界面。
+        /// - 失败 / 取消：不崩，退回该档缩略图，并在 detail 里写明「全分辨率重算失败」。
+        private func openFullResolutionPreview(_ preview: PaperEnhancePreview) {
+            // 该档设为当前选择（也保证失败回退时选择与展示一致）。
+            enhanceWhiteness = preview.selection.whiteness
+            enhanceColor = preview.selection.color
+
+            guard let report else {
+                // 理论不可达（网格只在有报告时显示）：直接展示缩略图。
+                previewItem = ImagePreviewItem(
+                    image: UIImage(cgImage: preview.image),
+                    title: "⑤ 预览 · \(preview.title)",
+                    detail: Self.pixelSize(of: UIImage(cgImage: preview.image))
+                )
+                return
+            }
+
+            previewTask?.cancel()
+            let fallbackImage = preview.image
+            let fallbackTitle = preview.title
+            let source = report.dewarpedImage
+            let selection = preview.selection
+            enhancingPreviewTitle = fallbackTitle
+
+            previewTask = Task.detached(priority: .userInitiated) {
+                let outcome: Result<(image: CGImage, milliseconds: Double), Error>
+                do {
+                    outcome = .success(try DewarpSelfTestRunner.enhanceFullResolution(source: source, selection: selection))
+                } catch {
+                    outcome = .failure(error)
+                }
+                if Task.isCancelled { return }
+                await MainActor.run {
+                    self.enhancingPreviewTitle = nil
+                    switch outcome {
+                    case let .success(value):
+                        self.previewItem = ImagePreviewItem(
+                            image: UIImage(cgImage: value.image),
+                            title: "⑤ 纸张增强（全分辨率）",
+                            detail: "\(Self.pixelSize(of: UIImage(cgImage: value.image)))"
+                                + " · 当前档 \(selection.title)"
+                                + " · 全分辨率重算 \(self.milliseconds(value.milliseconds))"
+                        )
+                    case let .failure(error):
+                        self.previewItem = ImagePreviewItem(
+                            image: UIImage(cgImage: fallbackImage),
+                            title: "⑤ 预览 · \(fallbackTitle)",
+                            detail: "全分辨率重算失败：\(error) · 回退缩略图 \(Self.pixelSize(of: UIImage(cgImage: fallbackImage)))"
                         )
                     }
-                Text(preview.title).font(.caption2).foregroundStyle(.secondary)
+                }
             }
         }
 
@@ -304,6 +370,8 @@
         /// 启动一次自测：先取消上一个任务，再把整条管线放到后台线程。
         private func start(source: LoadSource) {
             task?.cancel()
+            previewTask?.cancel()
+            enhancingPreviewTitle = nil
             guard let environment = scanEnvironment else {
                 report = nil
                 failure = "Environment 未注入（组合根未装配）"
