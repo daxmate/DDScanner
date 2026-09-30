@@ -233,6 +233,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					1124461DE6970036AFFC5990 = {
+						DevelopmentTeam = B6FA37AYT5;
+					};
 				};
 			};
 			buildConfigurationList = 08BA04A168C6683E2B606331 /* Build configuration list for PBXProject "DDScanner" */;
@@ -469,6 +472,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B6FA37AYT5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DDScanner;
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄文档并生成扫描件。";
@@ -494,6 +498,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B6FA37AYT5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DDScanner;
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄文档并生成扫描件。";
