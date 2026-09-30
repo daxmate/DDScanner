@@ -47,6 +47,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.daxmate.DDScanner
         PRODUCT_NAME: DDScanner
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: DDScanner

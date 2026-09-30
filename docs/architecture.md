@@ -9,6 +9,7 @@ Sources/DDScannerVision/ Apple 后端：Vision 边缘检测 + Core Image 透视�
 Sources/DDScannerDewarp/ 去畸变：抽象协议 + Core ML（UVDoc 网格模型）后端实现
 Sources/DDScannerExport/ PDF / 图片导出
 Resources/{zh-Hans,en}.lproj  本地化资源
+Resources/Assets.xcassets  AppIcon 资源目录
 Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
 ```
 
