@@ -172,6 +172,9 @@ public enum PaperEnhancer {
         vDSP_svdiv(&shadowFloor, gain, 1, &gain, 1, vDSP_Length(planeSize))
         var scale = paperScale
         vDSP_vsmul(gain, 1, &scale, &gain, 1, vDSP_Length(planeSize))
+        // 病态输入（如几乎全黑 + 极小的非零纸面参考 → paperScale 溢出）可能把增益推到非有限；
+        // 这里兜一道，保证「非有限值 → 不崩」在整条链路上成立，而不只是在入口。
+        SRGBTransfer.sanitizeNonFinite(&gain)
 
         // ⑥ 逐通道施加增益 + 乘性纸色 + 回编码域。
         let tint = SRGBTransfer.decodeComponents(options.paperColor)
@@ -271,8 +274,25 @@ enum SRGBTransfer {
         var indices = [Float](repeating: 0, count: count)
         vDSP_vsmul(values, 1, &scale, &indices, 1, vDSP_Length(count))
         vDSP_vclip(indices, 1, &lower, &upper, &indices, 1, vDSP_Length(count))
+        // `vDSP_vclip` 对 NaN 的比较全为假，NaN 会原样穿过；而 `vDSP_vlint` 拿 NaN 当下标
+        // 会读出界外地址（实测：注入错误的增益 → 测试进程 SIGBUS）。故插值前再兜一道。
+        sanitizeNonFinite(&indices)
         vDSP_vlint(table, indices, 1, &output, 1, vDSP_Length(count), vDSP_Length(table.count))
         return output
+    }
+
+    /// 把非有限值（NaN / ±∞）就地换成 0：先廉价探测（vDSP_sve，NaN/∞ 会传播），
+    /// 全有限时不拷贝、不扫描。
+    static func sanitizeNonFinite(_ values: inout [Float]) {
+        guard !values.isEmpty else { return }
+        var total: Float = 0
+        values.withUnsafeBufferPointer { buffer in
+            vDSP_sve(buffer.baseAddress!, 1, &total, vDSP_Length(values.count))
+        }
+        guard !total.isFinite else { return }
+        for index in values.indices where !values[index].isFinite {
+            values[index] = 0
+        }
     }
 
     static func decode(_ values: [Float]) -> [Float] { apply(values, table: decodeTable) }
