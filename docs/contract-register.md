@@ -58,7 +58,7 @@ CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源
 
 `swift test` 在**一条用例都没跑**时退出码仍是 0 —— `--filter` 匹配 0 条（批 1 教训）、测试 target 被改名、扫不到用例文件都会这样。**只看退出码 = 假绿**。
 
-CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 93 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
+CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 95 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
 
 ### SPM 包与测试 target 零警告（G1 补齐）
 
@@ -69,6 +69,16 @@ CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scr
 - release 额外传 `-Xswiftc -enable-testing`：`swift build` 在 release 下不给库 target 传该 flag，`@testable import` 会编译失败（`swift test` 自带该行为）；只影响可测性，不改变诊断口径。
 - CI 落点：`ci.yml` job `core-tests` 的**首个 step** —— debug 构建产物与后续三个 `swift test` step 共用 `.build`，净增 ≈ release 一轮。
 - 自证（双向）：把 `Sources/DDScannerCore/Tests/DDScannerCoreTests/BackgroundExecutionTests.swift` 还原为修复前（两处 `!Thread.isMainThread`）→ `packages` 必须红（debug 与 release 都命中）；修复后必须绿。
+
+### 越界填充语义（批 10 P1，**有意与上游分歧，已钉死**）
+
+上游 UVDoc `utils.bilinear_unwarping` 调 `F.grid_sample` **未传 `padding_mode`** ⇒ PyTorch 默认 `zeros`；
+我们的 `GridResampler` 越界一律 **clamp 到边缘**（≡ PyTorch `border`）。实测（torch 2.14.0，3×3 图 +
+网格 x = [-1.5, 0, 1.5]）：zeros → [1.5, 4.0, 2.5]，border → [3.0, 4.0, 5.0]。
+
+- 复现命令与推导写在 `Tests/DDScannerCoreTests/GridPaddingSemanticsTests.swift` 头部。
+- **本批不改语义**：zeros ↔ clamp 是产品取向（对齐上游 vs 不引入黑边），且「真实模型输出的网格是否越界」未实测 → 方向类决策，交 maintainer。
+- 反向验证：若把实现改成 zeros，该两条用例必红。
 
 ### shell 变量展开边界（G10）
 

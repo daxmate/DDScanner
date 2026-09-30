@@ -113,4 +113,8 @@ Debug + Release 各一份），再按实测数据提速。
   的逐行 Swift 侧开销）——该项**不在本批范围**（且不得新增第二份重采样实现），留待后续批次。
 - **契约**：两个参考实现（`ScalarSamplingGridReference` / `LegacyFloatImageReference.pixelBuffer`）+ 两份等价性
   测试（`SamplingGridEquivalenceTests` ≤ 1e-6 / `PixelRenderingEquivalenceTests` 逐字节），登记见
-  `docs/contract-register.md`；Core 用例数下限 80 → **93**。
+  `docs/contract-register.md`；Core 用例数下限 80 → **95**。
+- **P1（边界语义实测）**：上游 `utils.bilinear_unwarping` 调 `F.grid_sample` 未传 `padding_mode` ⇒ PyTorch
+  默认 `zeros`（越界趋向黑边）；我们越界 **clamp 到边缘**（≡ PyTorch `border`）。实测（torch 2.14.0，
+  3×3 图 + 网格 x = [-1.5, 0, 1.5]）：zeros → [1.5, 4.0, 2.5]，border → [3.0, 4.0, 5.0]。
+  **本批不改语义**（方向类决策，交 maintainer）；差异钉在 `GridPaddingSemanticsTests`，登记见 contract-register。
