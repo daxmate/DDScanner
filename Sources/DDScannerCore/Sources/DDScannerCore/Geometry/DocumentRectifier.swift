@@ -7,6 +7,7 @@
 // 坐标约定（与 `DocumentQuad` / `DocumentDetection` 一致，**写死**）：
 //   四角为归一化坐标 ∈ [0,1]，原点在**图像左上角**、y 轴**向下**；顺序 **TL → TR → BR → BL**。
 //   采样网格沿用 `GridResampler` 的 PyTorch `grid_sample` 约定：-1 → 像素 0，+1 → 像素 (N-1)。
+import Accelerate
 import CoreGraphics
 import Foundation
 
@@ -95,22 +96,95 @@ public enum DocumentRectifier {
     }
 
     /// 采样网格：目标像素 (column, row) → 源图归一化坐标（`align_corners=True` 口径）。
+    ///
+    /// 实现已**向量化**（Accelerate / vDSP，Double 精度）：单应映射写成「行内 u 向量的仿射变换 +
+    /// 除法」——每行只做常数次向量调用（u 只依赖输出列，故列向量只建一次），把原逐像素双重循环
+    /// （2689×3007 ≈ 8.08 M 次标量迭代）压成数千次向量调用。语义与标量实现**逐点一致**：
+    /// 标量实现原样搬到测试侧作参考实现（`ScalarSamplingGridReference`），等价性由
+    /// `SamplingGridEquivalenceTests` 守着（逐点 ≤ 1e-6）。
+    ///
+    /// 数值口径与原实现保持一致：u / v 仍以 Float 计算（`GridResampler.unit`）后再无损转 Double，
+    /// 单应的乘法/加法结合序不变（`(h·u) + (h·v)` 后再加常数项），最后 `Float(x) * 2 - 1` 仍在
+    /// Float 域做。唯一差异来自 vDSP 可能对 `a·b + c` 用 FMA → Double 级 ≤ 1 ULP，远小于契约阈值。
     static func samplingGrid(homography: Homography, targetWidth: Int, targetHeight: Int) -> NormalizedSampleGrid {
         precondition(targetWidth > 0 && targetHeight > 0, "目标尺寸必须为正")
-        var xValues = [Float](repeating: 0, count: targetWidth * targetHeight)
-        var yValues = [Float](repeating: 0, count: targetWidth * targetHeight)
-        for row in 0 ..< targetHeight {
-            let v = GridResampler.unit(row, count: targetHeight)
-            for column in 0 ..< targetWidth {
-                let u = GridResampler.unit(column, count: targetWidth)
-                let source = homography.map(CGPoint(x: Double(u), y: Double(v)))
-                let index = row * targetWidth + column
-                // 归一化 [0,1] → 采样网格 [-1,1]（-1 = 像素 0，+1 = 像素 N-1）。
-                xValues[index] = Float(source.x) * 2 - 1
-                yValues[index] = Float(source.y) * 2 - 1
+        let width = targetWidth
+        let height = targetHeight
+        let values = homography.values
+        let count = vDSP_Length(width)
+
+        // 单应系数先取到局部标量（`vDSP_vsmsaD` 的标量参数需要指针）。
+        let h0 = values[0], h1 = values[1], h2 = values[2], h3 = values[3]
+        let h4 = values[4], h5 = values[5], h6 = values[6], h7 = values[7]
+        var h0Scalar = h0, h2Scalar = h2, h3Scalar = h3
+        var h5Scalar = h5, h6Scalar = h6
+        var oneScalar: Double = 1
+
+        // 列方向 u：只依赖输出列（与标量实现同为 Float 精度，再无损转 Double）。
+        var unitColumns = [Float](repeating: 0, count: width)
+        for column in 0 ..< width {
+            unitColumns[column] = GridResampler.unit(column, count: width)
+        }
+        var uColumns = [Double](repeating: 0, count: width)
+        vDSP_vspdp(unitColumns, 1, &uColumns, 1, count)
+
+        var xValues = [Float](repeating: 0, count: width * height)
+        var yValues = [Float](repeating: 0, count: width * height)
+
+        // 行内中间量（长度 = 输出宽），循环内复用。
+        var denominator = [Double](repeating: 0, count: width)
+        var xNumerator = [Double](repeating: 0, count: width)
+        var yNumerator = [Double](repeating: 0, count: width)
+        var absoluteDenominator = [Double](repeating: 0, count: width)
+        var coordinate = [Double](repeating: 0, count: width)
+        var singleRow = [Float](repeating: 0, count: width)
+        var twoScalar: Float = 2
+        var negativeOneScalar: Float = -1
+
+        xValues.withUnsafeMutableBufferPointer { xBuffer in
+            yValues.withUnsafeMutableBufferPointer { yBuffer in
+                for row in 0 ..< height {
+                    // v 只依赖输出行；u / v 的取法与原实现完全相同。
+                    let v = Double(GridResampler.unit(row, count: height))
+                    // 与原实现同结合序：分母 ((h6·u) + (h7·v)) + 1；分子 ((h0·u) + (h1·v)) + h2。
+                    var denominatorOffset = h7 * v
+                    vDSP_vsmsaD(uColumns, 1, &h6Scalar, &denominatorOffset, &denominator, 1, count)
+                    vDSP_vsaddD(denominator, 1, &oneScalar, &denominator, 1, count)
+                    var xOffset = h1 * v
+                    vDSP_vsmsaD(uColumns, 1, &h0Scalar, &xOffset, &xNumerator, 1, count)
+                    vDSP_vsaddD(xNumerator, 1, &h2Scalar, &xNumerator, 1, count)
+                    var yOffset = h4 * v
+                    vDSP_vsmsaD(uColumns, 1, &h3Scalar, &yOffset, &yNumerator, 1, count)
+                    vDSP_vsaddD(yNumerator, 1, &h5Scalar, &yNumerator, 1, count)
+
+                    // 分母绝对值下界保护（与 `Homography.map` 的 1e-12 语义一致）：
+                    // 正常单应恒走快速路径，退化时才对触发的元素逐个修正。
+                    vDSP_vabsD(denominator, 1, &absoluteDenominator, 1, count)
+                    var minimumAbsolute: Double = 0
+                    vDSP_minmgvD(absoluteDenominator, 1, &minimumAbsolute, count)
+                    if minimumAbsolute < 1e-12 {
+                        for index in 0 ..< width where abs(denominator[index]) < 1e-12 {
+                            denominator[index] = 1e-12
+                        }
+                    }
+
+                    let base = row * width
+                    // x = xNum / den → Float → [-1, 1]（`Float(x) * 2 - 1`）。
+                    vDSP_vdivD(denominator, 1, xNumerator, 1, &coordinate, 1, count)
+                    vDSP_vdpsp(coordinate, 1, &singleRow, 1, count)
+                    vDSP_vsmul(singleRow, 1, &twoScalar, &singleRow, 1, count)
+                    vDSP_vsadd(singleRow, 1, &negativeOneScalar, &singleRow, 1, count)
+                    xBuffer.baseAddress!.advanced(by: base).update(from: singleRow, count: width)
+                    // y 同理。
+                    vDSP_vdivD(denominator, 1, yNumerator, 1, &coordinate, 1, count)
+                    vDSP_vdpsp(coordinate, 1, &singleRow, 1, count)
+                    vDSP_vsmul(singleRow, 1, &twoScalar, &singleRow, 1, count)
+                    vDSP_vsadd(singleRow, 1, &negativeOneScalar, &singleRow, 1, count)
+                    yBuffer.baseAddress!.advanced(by: base).update(from: singleRow, count: width)
+                }
             }
         }
-        return NormalizedSampleGrid(columns: targetWidth, rows: targetHeight, xValues: xValues, yValues: yValues)
+        return NormalizedSampleGrid(columns: width, rows: height, xValues: xValues, yValues: yValues)
     }
 
     static func distance(_ lhs: CGPoint, _ rhs: CGPoint) -> Double {
