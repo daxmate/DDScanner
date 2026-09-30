@@ -101,18 +101,12 @@ public enum FloatImageConverter {
     ///
     /// 放在 Core 的理由：平台层（App 自测页 / Vision 成像）都要把重采样结果画回来；
     /// 只保留**一份**转换实现，避免各层各写一份（且可脱离模拟器在本机单测）。
+    ///
+    /// 实现已**向量化**（Accelerate / vDSP）：逐像素标量循环（8.08 Mpx 输出 = 8.08 M 像素 ×
+    /// 3 通道）改为「逐通道整平面缩放/钳制 + 一次带菱形步长的取整写回」。数值语义与旧实现
+    /// **逐字节一致**（见 `rgbPixelBuffer`），由 `PixelRenderingEquivalenceTests` 守着。
     public static func makeCGImage(from image: FloatImage) -> CGImage? {
-        let planeSize = image.width * image.height
-        let channels = min(image.channels, 3)
-        guard channels > 0 else { return nil }
-        var buffer = [UInt8](repeating: 255, count: planeSize * 4)
-        for index in 0 ..< planeSize {
-            let pixel = index * 4
-            for channel in 0 ..< channels {
-                let value = image.values[channel * planeSize + index]
-                buffer[pixel + channel] = UInt8(max(0, min(255, value * 255)).rounded())
-            }
-        }
+        guard let buffer = rgbPixelBuffer(from: image) else { return nil }
         guard let provider = CGDataProvider(data: Data(buffer) as CFData) else { return nil }
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
         return CGImage(
@@ -128,6 +122,74 @@ public enum FloatImageConverter {
             shouldInterpolate: true,
             intent: .defaultIntent
         )
+    }
+
+    /// Float32 平面图 → 行优先 `R,G,B,X` 像素缓冲（`X` 恒为 255；缺少的通道也为 255）。
+    /// 通道数非法（≤ 0）时返回 `nil`。
+    ///
+    /// 数值语义 = 旧逐像素实现 `UInt8(max(0, min(255, value * 255)).rounded())`，逐字节一致：
+    ///   ① `value * 255` 与钳制都在 **Float** 域（与旧实现同精度、同顺序）；
+    ///   ② 取整走 **Double**：`Float → Double` 无损，`+ 0.5` 在 Double 内**精确**（x ∈ [0,255]
+    ///      时 `x + 0.5` 最多 25 位有效位，53 位尾数足包容），再截断 ——
+    ///      对非负值等价于「四舍五入、半值远离零」，即 `.rounded()` 的默认语义；
+    ///   ③ 非有限值先按旧实现的 min/max 语义归一（NaN / +∞ → 255，-∞ → 0）。
+    static func rgbPixelBuffer(from image: FloatImage) -> [UInt8]? {
+        let width = image.width
+        let height = image.height
+        let planeSize = width * height
+        let channels = min(image.channels, 3)
+        guard channels > 0 else { return nil }
+
+        // 未使用的通道与 X 字节保持 255（与旧实现「缓冲初始化为 255」一致）。
+        var buffer = [UInt8](repeating: 255, count: planeSize * 4)
+
+        // 非有限值：旧实现 `max(0, min(255, value * 255))` 下 NaN / +∞ → 255（→1.0）、-∞ → 0。
+        // 正常路径（全有限）不拷贝，直接引用原缓冲。
+        let source: [Float]
+        if allValuesAreFinite(image.values) {
+            source = image.values
+        } else {
+            var sanitized = image.values
+            for index in sanitized.indices where !sanitized[index].isFinite {
+                sanitized[index] = sanitized[index] < 0 ? 0 : 1
+            }
+            source = sanitized
+        }
+
+        source.withUnsafeBufferPointer { sourcePointer in
+            buffer.withUnsafeMutableBufferPointer { outputPointer in
+                guard let base = sourcePointer.baseAddress, let destination = outputPointer.baseAddress else {
+                    return
+                }
+                let count = vDSP_Length(planeSize)
+                var scaled = [Float](repeating: 0, count: planeSize)
+                var widened = [Double](repeating: 0, count: planeSize)
+                var scaleValue: Float = 255
+                var lower: Float = 0
+                var upper: Float = 255
+                var half: Double = 0.5
+                for channel in 0 ..< channels {
+                    let plane = base + channel * planeSize
+                    vDSP_vsmul(plane, 1, &scaleValue, &scaled, 1, count)
+                    vDSP_vclip(scaled, 1, &lower, &upper, &scaled, 1, count)
+                    vDSP_vspdp(scaled, 1, &widened, 1, count)
+                    vDSP_vsaddD(widened, 1, &half, &widened, 1, count)
+                    // 输出步长 4：直接写进交错缓冲的第 channel 个字节。
+                    vDSP_vfixu8D(widened, 1, destination.advanced(by: channel), 4, count)
+                }
+            }
+        }
+        return buffer
+    }
+
+    /// 全部元素有限？（vDSP 求和：NaN / ±∞ 会传播出来 → 非有限 ⇒ false。）
+    private static func allValuesAreFinite(_ values: [Float]) -> Bool {
+        guard !values.isEmpty else { return true }
+        var total: Float = 0
+        values.withUnsafeBufferPointer { buffer in
+            vDSP_sve(buffer.baseAddress!, 1, &total, vDSP_Length(values.count))
+        }
+        return total.isFinite
     }
 
     /// 手工分配一个 64 字节对齐、行距恰为 `width × bytesPerPixel` 的 vImage 缓冲。

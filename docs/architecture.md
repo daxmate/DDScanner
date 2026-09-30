@@ -91,3 +91,26 @@ Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
   ≤ `GridResampler.maximumSourcePixelCount`（2^24），否则明确报错。
 - **仍未接管线**：`ScanPipeline` 的 `DocumentDetecting`（帧几何入口）仍不含像素，相机/拍摄/
   四角微调属后续批次；本批的像素前段由自测页直接消费。
+
+## 批 10：透视矫正的分解计时与提速
+
+真机 Debug 自测页报「透视矫正 + 裁切」**7107 ms**（输出 2689×3007）。本批先**分解计时**（同机同输入、
+Debug + Release 各一份），再按实测数据提速。
+
+- **分解（本机 xmini, 3024×4032 → 2689×3007）**：Debug (a) 38.6 / (b) 975.6 / (c) 1414.1 / (d) 2351.7 ms，
+  合计 4762 ms；Release (a) 13.5 / (b) 11.0 / (c) 56.4 / (d) 24.0 ms，合计 95.2 ms。
+  ⇒ **7107 ms 是 Debug（-Onone）现象**：同一段代码 Release 已 ≈95 ms（≤ 200 ms 目标 2× 富余）；
+  大象跑的是 Debug ⌘R，所以体感慢，但不能把它当发布性能。
+- **向量化两处**（保持「重采样只有 `GridResampler` 一个入口」不变，产品路径不增第二份实现）：
+  - `DocumentRectifier.samplingGrid`（(b)）：逐像素双重循环 → vDSP 行向量化（Double 精度）。
+    分母保护从逐行归约改为**四角一次性判定**（`den` 在 [0,1]² 上仿射，四角同号即整幅不跨零）——
+    逐行 `vDSP_minmgvD` 归约是首版的性能回退源（Release 18.8 ms > 标量 13.0 ms，改后 11.1 ms）。
+  - `FloatImageConverter.makeCGImage`（(d)）：逐像素标量循环 → 逐通道 vDSP 缩放/钳制 + 带菱形步长的
+    取整写回（`Float → Double → +0.5 → 截断`），数值语义与旧实现**逐字节一致**。
+- **效果（同口径）**：Debug (b) 975.6 → 24.3 ms、(d) 2351.7 → 55.1 ms，合计 4762 → 1521 ms；
+  Release (b) 11.0 → 11.1 ms、(d) 24.0 → 22.0 ms，合计 95.2 → 94.0 ms（不回退；Division 吞吐是 Release 下界）。
+- **Debug 仍是 1521 ms，瓶颈已变成 (c) 重采样 1412 ms**（`AcceleratedGridResampler` 在 -Onone 下调 vDSP
+  的逐行 Swift 侧开销）——该项**不在本批范围**（且不得新增第二份重采样实现），留待后续批次。
+- **契约**：两个参考实现（`ScalarSamplingGridReference` / `LegacyFloatImageReference.pixelBuffer`）+ 两份等价性
+  测试（`SamplingGridEquivalenceTests` ≤ 1e-6 / `PixelRenderingEquivalenceTests` 逐字节），登记见
+  `docs/contract-register.md`；Core 用例数下限 80 → **93**。

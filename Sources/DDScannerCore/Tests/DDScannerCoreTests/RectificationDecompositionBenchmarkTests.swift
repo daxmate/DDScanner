@@ -69,6 +69,11 @@ struct RectificationDecompositionBenchmarkTests {
                 homography: homography, targetWidth: Self.targetWidth, targetHeight: Self.targetHeight
             )
         }
+        measure("(b0) ScalarSamplingGridReference（改动前口径）", iterations: 2) {
+            _ = ScalarSamplingGridReference.samplingGrid(
+                homography: homography, targetWidth: Self.targetWidth, targetHeight: Self.targetHeight
+            )
+        }
         let grid = DocumentRectifier.samplingGrid(
             homography: homography, targetWidth: Self.targetWidth, targetHeight: Self.targetHeight
         )
@@ -88,6 +93,9 @@ struct RectificationDecompositionBenchmarkTests {
             output = FloatImageConverter.makeCGImage(from: fullRectified)
         }
         #expect(output != nil)
+        measure("(d0) LegacyFloatImageReference.pixelBuffer（改动前口径）", iterations: 2) {
+            _ = LegacyFloatImageReference.pixelBuffer(from: fullRectified)
+        }
 
         // 合计：(a)+(b)+(c)+(d) 顺序跑一遍（与 correctedImage 同序）
         measure("(a+b+c+d) 合计 correctedImage 同序", iterations: 3) {

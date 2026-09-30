@@ -104,8 +104,11 @@ public enum DocumentRectifier {
     /// `SamplingGridEquivalenceTests` 守着（逐点 ≤ 1e-6）。
     ///
     /// 数值口径与原实现保持一致：u / v 仍以 Float 计算（`GridResampler.unit`）后再无损转 Double，
-    /// 单应的乘法/加法结合序不变（`(h·u) + (h·v)` 后再加常数项），最后 `Float(x) * 2 - 1` 仍在
-    /// Float 域做。唯一差异来自 vDSP 可能对 `a·b + c` 用 FMA → Double 级 ≤ 1 ULP，远小于契约阈值。
+    /// 只在「常数项合并」与「×2 − 1 在 Double 域做」两处与标量写的结合序不同 → Double 级 ≤ 1 ULP，
+    /// 转 Float 后 ≤ 1 ULP（约 1e-7 相对），远小于契约阈值 1e-6。
+    ///
+    /// 分母保护（`|den| < 1e-12 → 1e-12`）不在热路径逐行做：`den` 在 [0,1]² 上是仿射的，
+    /// 四角同号即意味着整幅不跨零，可一次性判定。
     static func samplingGrid(homography: Homography, targetWidth: Int, targetHeight: Int) -> NormalizedSampleGrid {
         precondition(targetWidth > 0 && targetHeight > 0, "目标尺寸必须为正")
         let width = targetWidth
@@ -116,9 +119,10 @@ public enum DocumentRectifier {
         // 单应系数先取到局部标量（`vDSP_vsmsaD` 的标量参数需要指针）。
         let h0 = values[0], h1 = values[1], h2 = values[2], h3 = values[3]
         let h4 = values[4], h5 = values[5], h6 = values[6], h7 = values[7]
-        var h0Scalar = h0, h2Scalar = h2, h3Scalar = h3
-        var h5Scalar = h5, h6Scalar = h6
-        var oneScalar: Double = 1
+        var h0Scalar = h0, h3Scalar = h3
+        var h6Scalar = h6, h7Scalar = h7
+        var twoScalar: Double = 2
+        var negativeOneScalar: Double = -1
 
         // 列方向 u：只依赖输出列（与标量实现同为 Float 精度，再无损转 Double）。
         var unitColumns = [Float](repeating: 0, count: width)
@@ -128,59 +132,51 @@ public enum DocumentRectifier {
         var uColumns = [Double](repeating: 0, count: width)
         vDSP_vspdp(unitColumns, 1, &uColumns, 1, count)
 
+        // 分母保护是否可能触发：`den(u, v) = h6·u + h7·v + 1` 在 [0,1]² 上是**仿射**的，
+        // 极值必在四角。若四角同号且 |·| ≥ 1e-12，则网格上恒有 |den| ≥ 1e-12 → 整幅都走
+        // 无保护快路径（正常单应恒成立），把每行的归约检查从热路径里拿掉。
+        let cornerValues = [1.0, h6 + 1, h7 + 1, h6 + h7 + 1]
+        let denominatorClearsGuard = cornerValues.allSatisfy { $0 >= 1e-12 }
+            || cornerValues.allSatisfy { $0 <= -1e-12 }
+
         var xValues = [Float](repeating: 0, count: width * height)
         var yValues = [Float](repeating: 0, count: width * height)
 
         // 行内中间量（长度 = 输出宽），循环内复用。
         var denominator = [Double](repeating: 0, count: width)
-        var xNumerator = [Double](repeating: 0, count: width)
-        var yNumerator = [Double](repeating: 0, count: width)
-        var absoluteDenominator = [Double](repeating: 0, count: width)
+        var numerator = [Double](repeating: 0, count: width)
         var coordinate = [Double](repeating: 0, count: width)
         var singleRow = [Float](repeating: 0, count: width)
-        var twoScalar: Float = 2
-        var negativeOneScalar: Float = -1
 
         xValues.withUnsafeMutableBufferPointer { xBuffer in
             yValues.withUnsafeMutableBufferPointer { yBuffer in
                 for row in 0 ..< height {
                     // v 只依赖输出行；u / v 的取法与原实现完全相同。
                     let v = Double(GridResampler.unit(row, count: height))
-                    // 与原实现同结合序：分母 ((h6·u) + (h7·v)) + 1；分子 ((h0·u) + (h1·v)) + h2。
-                    var denominatorOffset = h7 * v
+                    // 分母 den = h6·u + (h7·v + 1)。
+                    var denominatorOffset = h7Scalar * v + 1
                     vDSP_vsmsaD(uColumns, 1, &h6Scalar, &denominatorOffset, &denominator, 1, count)
-                    vDSP_vsaddD(denominator, 1, &oneScalar, &denominator, 1, count)
-                    var xOffset = h1 * v
-                    vDSP_vsmsaD(uColumns, 1, &h0Scalar, &xOffset, &xNumerator, 1, count)
-                    vDSP_vsaddD(xNumerator, 1, &h2Scalar, &xNumerator, 1, count)
-                    var yOffset = h4 * v
-                    vDSP_vsmsaD(uColumns, 1, &h3Scalar, &yOffset, &yNumerator, 1, count)
-                    vDSP_vsaddD(yNumerator, 1, &h5Scalar, &yNumerator, 1, count)
-
-                    // 分母绝对值下界保护（与 `Homography.map` 的 1e-12 语义一致）：
-                    // 正常单应恒走快速路径，退化时才对触发的元素逐个修正。
-                    vDSP_vabsD(denominator, 1, &absoluteDenominator, 1, count)
-                    var minimumAbsolute: Double = 0
-                    vDSP_minmgvD(absoluteDenominator, 1, &minimumAbsolute, count)
-                    if minimumAbsolute < 1e-12 {
+                    if !denominatorClearsGuard {
                         for index in 0 ..< width where abs(denominator[index]) < 1e-12 {
                             denominator[index] = 1e-12
                         }
                     }
 
-                    let base = row * width
-                    // x = xNum / den → Float → [-1, 1]（`Float(x) * 2 - 1`）。
-                    vDSP_vdivD(denominator, 1, xNumerator, 1, &coordinate, 1, count)
+                    // x：分子 = h0·u + (h1·v + h2) → 除 → ×2 − 1（均在 Double）→ Float。
+                    var xOffset = h1 * v + h2
+                    var yOffset = h4 * v + h5
+                    vDSP_vsmsaD(uColumns, 1, &h0Scalar, &xOffset, &numerator, 1, count)
+                    vDSP_vdivD(denominator, 1, numerator, 1, &coordinate, 1, count)
+                    vDSP_vsmsaD(coordinate, 1, &twoScalar, &negativeOneScalar, &coordinate, 1, count)
                     vDSP_vdpsp(coordinate, 1, &singleRow, 1, count)
-                    vDSP_vsmul(singleRow, 1, &twoScalar, &singleRow, 1, count)
-                    vDSP_vsadd(singleRow, 1, &negativeOneScalar, &singleRow, 1, count)
-                    xBuffer.baseAddress!.advanced(by: base).update(from: singleRow, count: width)
+                    xBuffer.baseAddress!.advanced(by: row * width).update(from: singleRow, count: width)
+
                     // y 同理。
-                    vDSP_vdivD(denominator, 1, yNumerator, 1, &coordinate, 1, count)
+                    vDSP_vsmsaD(uColumns, 1, &h3Scalar, &yOffset, &numerator, 1, count)
+                    vDSP_vdivD(denominator, 1, numerator, 1, &coordinate, 1, count)
+                    vDSP_vsmsaD(coordinate, 1, &twoScalar, &negativeOneScalar, &coordinate, 1, count)
                     vDSP_vdpsp(coordinate, 1, &singleRow, 1, count)
-                    vDSP_vsmul(singleRow, 1, &twoScalar, &singleRow, 1, count)
-                    vDSP_vsadd(singleRow, 1, &negativeOneScalar, &singleRow, 1, count)
-                    yBuffer.baseAddress!.advanced(by: base).update(from: singleRow, count: width)
+                    yBuffer.baseAddress!.advanced(by: row * width).update(from: singleRow, count: width)
                 }
             }
         }

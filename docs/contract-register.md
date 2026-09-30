@@ -27,13 +27,14 @@
 
 ## 参考实现（test-only，**不算产品路径**）
 
-批 7 把两处热点向量化后，旧实现**没有删**，而是原样搬进测试 target 作参照物。
+批 7 / 批 10 把几处热点向量化后，旧实现**没有删**，而是原样搬进测试 target 作参照物。
 **产品路径只有一份实现**；参考实现不得被产品代码引用，也不得再改写法（一旦被"顺手优化"，它就不再是参照物）。
 
 | 参考实现（测试 target） | 产品实现（唯一） | 守它的测试 | 用途 |
 |---|---|---|---|
 | `Sources/DDScannerCore/Tests/DDScannerCoreTests/ReferenceImplementations/ScalarGridResamplerReference.swift`（标量网格重采样，`8f0dfd5` 的 `GridResampler.resample` 原样拷贝） | `Sources/DDScannerCore/Sources/DDScannerCore/Geometry/AcceleratedGridResampler.swift`（Accelerate / vDSP） | `GridResampleEquivalenceTests`（max abs diff ≤ 1e-3；反向验证：阈值改 1e-9 必红） | 等价性基准 + 性能基准的「改动前」同口径数字 |
-| `.../ReferenceImplementations/LegacyFloatImageReference.swift`（`CGContext` `.high` + 标量循环） | `Sources/DDScannerCore/Sources/DDScannerCore/Imaging/FloatImageConverter.swift`（vImage） | `FloatImageConverterTests`（纯色不变量 / 同尺寸逐点 / 缩放接近度） | 同上 |
+| `.../ReferenceImplementations/ScalarSamplingGridReference.swift`（标量采样网格生成，`d96d0a2` 的 `DocumentRectifier.samplingGrid` 原样拷贝） | `Sources/DDScannerCore/Sources/DDScannerCore/Geometry/DocumentRectifier.swift` 的 `samplingGrid(homography:targetWidth:targetHeight:)`（Accelerate / vDSP，Double 精度） | `SamplingGridEquivalenceTests`（逐点 ≤ 1e-6；反向验证：把 `h1 → h2` 等符号改错 → 5/7 用例必红） | 同上 |
+| `.../ReferenceImplementations/LegacyFloatImageReference.swift`（① `CGContext` `.high` + 标量循环；② `makeCGImage` 逐像素写字节循环） | `Sources/DDScannerCore/Sources/DDScannerCore/Imaging/FloatImageConverter.swift`（vImage / vDSP） | `FloatImageConverterTests`（纯色不变量 / 同尺寸逐点 / 缩放接近度）、`PixelRenderingEquivalenceTests`（`rgbPixelBuffer` **逐字节一致**；反向验证：去掉 Double 域 `+0.5` → 4/5 用例必红） | 同上 |
 
 ## 运行方式
 
@@ -47,6 +48,8 @@ swift test --package-path Tests --filter StructuralBudget   # 单条
 
 ```bash
 DDSCANNER_BENCH=1 swift test -c release --package-path Sources/DDScannerCore --filter PerformanceBenchmarkTests
+# 批 10：「透视矫正 + 裁切」四段分解计时（(a) 整帧转 Float32 / (b) 采样网格生成 / (c) 重采样 / (d) 转 CGImage）
+DDSCANNER_BENCH=1 swift test -c release --package-path Sources/DDScannerCore --filter RectificationDecomposition
 ```
 
 CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源。
@@ -55,7 +58,7 @@ CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源
 
 `swift test` 在**一条用例都没跑**时退出码仍是 0 —— `--filter` 匹配 0 条（批 1 教训）、测试 target 被改名、扫不到用例文件都会这样。**只看退出码 = 假绿**。
 
-CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 80 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
+CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 93 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
 
 ### SPM 包与测试 target 零警告（G1 补齐）
 
