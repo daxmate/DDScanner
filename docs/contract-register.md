@@ -58,7 +58,7 @@ CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源
 
 `swift test` 在**一条用例都没跑**时退出码仍是 0 —— `--filter` 匹配 0 条（批 1 教训）、测试 target 被改名、扫不到用例文件都会这样。**只看退出码 = 假绿**。
 
-CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 103 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
+CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 104 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
 
 ### SPM 包与测试 target 零警告（G1 补齐）
 
@@ -85,7 +85,7 @@ CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scr
 - **不误伤透视矫正**：`DocumentRectifier.samplingGrid`（网格本就该按四边形铺满）**未被改动**，
   也不调用本入口；本次只接去畸变路径。
 - 契约：`SourceCoveringGridTests`（`Tests/DDScannerCoreTests/SourceCoveringGridTests.swift`）——
-  内容不丢（正向 + 修复前 = 0 的反向锚）/ 内部几何不变（逐点残差 = 0）/ no-op / 退化。
+  内容不丢（正向 + 修复前 = 0 的反向锚）/ 内部几何不变（逐点残差 = 0）/ 外推几何钉死 / no-op / 退化。
 - 真机与端到端数字见 `memory/DDScanner/surveys/`（批 20 报告）。
 
 ### 越界填充语义（批 10 P1，**有意与上游分歧，已钉死**）

@@ -128,6 +128,22 @@ struct SourceCoveringGridTests {
         }
     }
 
+    @Test("外推几何：按边界斜率线性外推后的网格尺寸与边角坐标（钉死，防符号/索引错位）")
+    func extrapolationGeometryIsPinned() throws {
+        let coverage = try #require(SourceCoveringGrid.coverage(of: shrunkGrid))
+        let extended = SourceCoveringGrid.extrapolate(shrunkGrid, coverage: coverage)
+        // 3×3 → 上下各 +1 行、左右各 +1 列 → 5×5。
+        #expect(extended.columns == 5)
+        #expect(extended.rows == 5)
+        let extendedCoverage = try #require(SourceCoveringGrid.coverage(of: extended))
+        // 上下各外推一行（y = -0.6 - 0.6 = -1.2 / 0.6 + 0.6 = 1.2）；
+        // 左右各外推一列（x = -0.6 - 0.6 = -1.2 / 0.6 + 0.6 = 1.2）。
+        #expect(extendedCoverage.ymin == -1.2)
+        #expect(extendedCoverage.ymax == 1.2)
+        #expect(extendedCoverage.xmin == -1.2)
+        #expect(extendedCoverage.xmax == 1.2)
+    }
+
     // MARK: - ③ 安全：no-op 与退化
 
     @Test("已覆盖 [-1, 1]² 的网格是 no-op（逐点相等，不重采样）")
