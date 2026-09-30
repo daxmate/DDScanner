@@ -25,11 +25,28 @@
 - 白名单为空是合法状态：本仓从零起步，**豁免应为 0**。
 - 新增豁免必须与它指向的修复计划同批提交，不允许「先豁免、后补计划」。
 
+## 参考实现（test-only，**不算产品路径**）
+
+批 7 把两处热点向量化后，旧实现**没有删**，而是原样搬进测试 target 作参照物。
+**产品路径只有一份实现**；参考实现不得被产品代码引用，也不得再改写法（一旦被"顺手优化"，它就不再是参照物）。
+
+| 参考实现（测试 target） | 产品实现（唯一） | 守它的测试 | 用途 |
+|---|---|---|---|
+| `Sources/DDScannerCore/Tests/DDScannerCoreTests/ReferenceImplementations/ScalarGridResamplerReference.swift`（标量网格重采样，`8f0dfd5` 的 `GridResampler.resample` 原样拷贝） | `Sources/DDScannerCore/Sources/DDScannerCore/Geometry/AcceleratedGridResampler.swift`（Accelerate / vDSP） | `GridResampleEquivalenceTests`（max abs diff ≤ 1e-3；反向验证：阈值改 1e-9 必红） | 等价性基准 + 性能基准的「改动前」同口径数字 |
+| `.../ReferenceImplementations/LegacyFloatImageReference.swift`（`CGContext` `.high` + 标量循环） | `Sources/DDScannerCore/Sources/DDScannerCore/Imaging/FloatImageConverter.swift`（vImage） | `FloatImageConverterTests`（纯色不变量 / 同尺寸逐点 / 缩放接近度） | 同上 |
+
 ## 运行方式
 
 ```bash
-swift test --package-path Tests                    # 全部契约（macOS 本地，无模拟器）
+swift test --package-path Sources/DDScannerCore       # Core 单测（含等价性契约）
+swift test --package-path Tests                       # 全部契约（macOS 本地，无模拟器）
 swift test --package-path Tests --filter StructuralBudget   # 单条
+```
+
+性能基准（默认不开、不进 CI，**必须 release** 才与真机口径一致）：
+
+```bash
+DDSCANNER_BENCH=1 swift test -c release --package-path Sources/DDScannerCore --filter PerformanceBenchmarkTests
 ```
 
 CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源。

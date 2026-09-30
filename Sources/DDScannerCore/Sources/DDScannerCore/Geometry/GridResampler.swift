@@ -115,6 +115,9 @@ public enum GridResampler {
     }
 
     /// 按网格把源图重采样到目标尺寸；返回 Float32 图像（通道数与源图一致）。
+    ///
+    /// 实现已向量化（Accelerate / vDSP，见 `AcceleratedGridResampler`）；标量实现保留在测试侧
+    /// 作参考实现，逐点等价性由 `GridResampleEquivalenceTests` 守着。
     public static func resample(
         grid: NormalizedSampleGrid,
         source: FloatImage,
@@ -122,41 +125,12 @@ public enum GridResampler {
         targetHeight: Int
     ) -> FloatImage {
         precondition(targetWidth > 0 && targetHeight > 0, "目标尺寸必须为正")
-        let sourceWidth = source.width
-        let sourceHeight = source.height
-        let planeSize = sourceWidth * sourceHeight
-        let targetPlaneSize = targetWidth * targetHeight
-        let lastX = Float(sourceWidth - 1)
-        let lastY = Float(sourceHeight - 1)
-        var values = [Float](repeating: 0, count: targetPlaneSize * source.channels)
-
-        for row in 0 ..< targetHeight {
-            let v = unit(row, count: targetHeight)
-            for column in 0 ..< targetWidth {
-                let normalized = interpolatedPoint(grid: grid, u: unit(column, count: targetWidth), v: v)
-                // 归一化 → 像素坐标（align_corners=True），越界 clamp。
-                let sourceX = clamped((normalized.x + 1) * 0.5 * lastX, upper: lastX)
-                let sourceY = clamped((normalized.y + 1) * 0.5 * lastY, upper: lastY)
-                let x0 = Int(sourceX.rounded(.down))
-                let y0 = Int(sourceY.rounded(.down))
-                let x1 = min(x0 + 1, sourceWidth - 1)
-                let y1 = min(y0 + 1, sourceHeight - 1)
-                let fractionX = sourceX - Float(x0)
-                let fractionY = sourceY - Float(y0)
-                for channel in 0 ..< source.channels {
-                    let base = channel * planeSize
-                    let topLeft = source.values[base + y0 * sourceWidth + x0]
-                    let topRight = source.values[base + y0 * sourceWidth + x1]
-                    let bottomLeft = source.values[base + y1 * sourceWidth + x0]
-                    let bottomRight = source.values[base + y1 * sourceWidth + x1]
-                    let top = topLeft + (topRight - topLeft) * fractionX
-                    let bottom = bottomLeft + (bottomRight - bottomLeft) * fractionX
-                    values[channel * targetPlaneSize + row * targetWidth + column] =
-                        top + (bottom - top) * fractionY
-                }
-            }
-        }
-        return FloatImage(width: targetWidth, height: targetHeight, channels: source.channels, values: values)
+        return AcceleratedGridResampler.resample(
+            grid: grid,
+            source: source,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight
+        )
     }
 
     /// 便捷入口：在源图自身分辨率上去畸变（上游 `demo.py` 的契约）。

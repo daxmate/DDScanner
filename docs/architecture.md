@@ -54,3 +54,12 @@ Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
   用量与判读见 `docs/device-test-uvdoc.md`。该页只读 Environment，不构造实现。
 - **仍未接管线**：`ScanFrame` 不含像素，`PageDewarping`（帧几何 → 网格）与像素型模型还差一层适配器；
   相机/拍摄/边缘检测/四角微调仍属后续批次。
+
+## 批 7：性能（真机首测超标项）
+
+- **重采样向量化**：`GridResampler.resample` 的实现改为 `AcceleratedGridResampler`（Accelerate / vDSP，
+  仍 Float32、越界 clamp、`align_corners=True` 语义不变）；旧标量实现保留在测试侧作参考实现
+  （见 `docs/contract-register.md`「参考实现」）。
+- **图像读取下沉 Core**：`FloatImageConverter`（`CoreGraphics` + `Accelerate`/vImage）接替 App 层的
+  「CGContext + 标量循环」转换；App 自测页只留一层 `UIImage` 包装。分层边界不变：Core 仍只依赖
+  Foundation / CoreGraphics / Accelerate。

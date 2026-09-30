@@ -159,35 +159,14 @@
         }
 
         /// 缩放到指定尺寸并转成 Float32 RGB（[0,1]）平面图。
+        /// 具体转换已下沉到 Core 的 `FloatImageConverter`（vImage，向量化）。
         func floatImage(width: Int, height: Int) throws -> FloatImage {
             guard let image = cgImage else { throw DewarpSelfTestError.imageConversionFailed }
-            let bytesPerRow = width * 4
-            var buffer = [UInt8](repeating: 0, count: bytesPerRow * height)
-            let rendered: Bool = buffer.withUnsafeMutableBytes { raw -> Bool in
-                guard let context = CGContext(
-                    data: raw.baseAddress,
-                    width: width,
-                    height: height,
-                    bitsPerComponent: 8,
-                    bytesPerRow: bytesPerRow,
-                    space: CGColorSpaceCreateDeviceRGB(),
-                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-                ) else { return false }
-                context.interpolationQuality = .high
-                context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-                return true
+            do {
+                return try FloatImageConverter.rgb(from: image, width: width, height: height)
+            } catch {
+                throw DewarpSelfTestError.imageConversionFailed
             }
-            guard rendered else { throw DewarpSelfTestError.imageConversionFailed }
-
-            let plane = width * height
-            var values = [Float](repeating: 0, count: plane * 3)
-            for index in 0 ..< plane {
-                let pixel = index * 4
-                values[index] = Float(buffer[pixel]) / 255
-                values[plane + index] = Float(buffer[pixel + 1]) / 255
-                values[2 * plane + index] = Float(buffer[pixel + 2]) / 255
-            }
-            return FloatImage(width: width, height: height, channels: 3, values: values)
         }
     }
 
