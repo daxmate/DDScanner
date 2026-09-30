@@ -97,6 +97,39 @@ public enum FloatImageConverter {
         return FloatImage(width: width, height: height, channels: 3, values: values)
     }
 
+    /// Float32 平面图 → `CGImage`（仅取前 3 通道作 RGB8；预览与后续处理共用）。
+    ///
+    /// 放在 Core 的理由：平台层（App 自测页 / Vision 成像）都要把重采样结果画回来；
+    /// 只保留**一份**转换实现，避免各层各写一份（且可脱离模拟器在本机单测）。
+    public static func makeCGImage(from image: FloatImage) -> CGImage? {
+        let planeSize = image.width * image.height
+        let channels = min(image.channels, 3)
+        guard channels > 0 else { return nil }
+        var buffer = [UInt8](repeating: 255, count: planeSize * 4)
+        for index in 0 ..< planeSize {
+            let pixel = index * 4
+            for channel in 0 ..< channels {
+                let value = image.values[channel * planeSize + index]
+                buffer[pixel + channel] = UInt8(max(0, min(255, value * 255)).rounded())
+            }
+        }
+        guard let provider = CGDataProvider(data: Data(buffer) as CFData) else { return nil }
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        return CGImage(
+            width: image.width,
+            height: image.height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: image.width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: bitmapInfo,
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: true,
+            intent: .defaultIntent
+        )
+    }
+
     /// 手工分配一个 64 字节对齐、行距恰为 `width × bytesPerPixel` 的 vImage 缓冲。
     private static func makeBuffer(width: Int, height: Int, bytesPerPixel: Int) -> vImage_Buffer {
         let rowBytes = width * bytesPerPixel

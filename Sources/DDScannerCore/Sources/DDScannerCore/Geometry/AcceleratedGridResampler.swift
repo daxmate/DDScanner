@@ -35,7 +35,7 @@ enum AcceleratedGridResampler {
         let lastSourceY = Float(sourceHeight - 1)
 
         precondition(
-            sourcePlaneSize <= (1 << 24),
+            sourcePlaneSize <= GridResampler.maximumSourcePixelCount,
             "向量化重采样要求源平面像素数 ≤ 2^24（Float32 精确索引），实际 \(sourcePlaneSize)"
         )
 

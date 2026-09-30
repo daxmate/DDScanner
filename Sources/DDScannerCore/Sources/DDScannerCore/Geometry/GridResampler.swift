@@ -95,6 +95,10 @@ public struct NormalizedSampleGrid: Equatable, Sendable {
 
 /// 网格重采样（Float32）。
 public enum GridResampler {
+    /// 向量化重采样要求源平面像素数 ≤ 2^24（Float32 可精确表示索引）。
+    /// App 读入路径最长边限 4032px（≤ 4032×4032 = 16.26M < 16.78M），恒满足。
+    public static let maximumSourcePixelCount = 1 << 24
+
     /// 把网格双线性插值到 `columns × rows`（`align_corners=True`）。
     public static func upsampleGrid(_ grid: NormalizedSampleGrid, columns: Int, rows: Int) -> NormalizedSampleGrid {
         let columns = max(columns, 1)
