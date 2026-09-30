@@ -29,7 +29,7 @@
 
 | # | 门禁 | 落点 |
 |---|---|---|
-| G1 | 零编译警告 | `scripts/check-zero-warnings.sh`（CI + pre-commit） |
+| G1 | 零编译警告（Xcode scheme + SPM 包/测试 target） | `scripts/check-zero-warnings.sh`（CI 跑 `build`/`build-for-testing`/`packages`；pre-commit 跑 `build`） |
 | G2 | 结构硬上限：单文件 ≤ 600 行、产品代码无裸 `print(` | `scripts/check-structural-budget.sh` |
 | G3 | 扫描型契约测试（纯扫描 + fail-closed 白名单带理由） | `Tests/ContractTests/*ContractTests.swift` |
 | G4 | 测试信号 fail-closed（每条契约必有「注入违规 → 必须红」自证） | 同 G3 |

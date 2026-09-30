@@ -48,6 +48,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      # 放在最前：debug 构建产物与后续三个 `swift test` step 共用 .build，几乎不增耗时；
+      # 补上 Xcode scheme 构建（只编 scheme 内 target）看不到的 SPM 测试 target 编译告警。
+      - name: SPM 包与测试 target 零警告（G1 补齐）
+        run: bash scripts/check-zero-warnings.sh packages
       - name: DDScannerCore 单测（G1 红利：本机可跑）
         run: |
           set -euo pipefail

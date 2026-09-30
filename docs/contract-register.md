@@ -57,6 +57,16 @@ CI 同一条命令跑（`ci.yml` job `core-tests`），保证本地与 CI 同源
 
 CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scripts/check-test-signal.sh <日志> <用例数下限>`：取不到 `Test run with N tests` 行、或实测数量低于下限，一律红。下限取**登记时的实测值**（Core 80 / 契约 17 / Dewarp 6）；包内用例减少即红，用例增长后应把 ci.yml 里的下限同步上调。
 
+### SPM 包与测试 target 零警告（G1 补齐）
+
+`scripts/check-zero-warnings.sh` 原有的 `build` / `build-for-testing` 走 `xcodebuild -scheme DDScanner`，只编 Xcode scheme 里的 App/库 target，**编不到 SPM 测试 target**（`DDScannerCoreTests` / `DDScannerDewarpTests` / `ContractTests`）。批 8 的 `Thread.isMainThread` 告警（Swift 6 起为 error）正是从这条缝漏过 CI 的。
+
+- 新增 action：`scripts/check-zero-warnings.sh packages` —— 对五个 SPM 包（Core / Dewarp / Export / Vision / Tests）× {debug, release} 跑 `swift build --build-tests`，日志 grep `warning:` 即红。
+- **fail-closed**：任一包构建失败、或日志里没有 `Build complete!` 成功标记、或零警告命中，一律 exit 1。
+- release 额外传 `-Xswiftc -enable-testing`：`swift build` 在 release 下不给库 target 传该 flag，`@testable import` 会编译失败（`swift test` 自带该行为）；只影响可测性，不改变诊断口径。
+- CI 落点：`ci.yml` job `core-tests` 的**首个 step** —— debug 构建产物与后续三个 `swift test` step 共用 `.build`，净增 ≈ release 一轮。
+- 自证（双向）：把 `Sources/DDScannerCore/Tests/DDScannerCoreTests/BackgroundExecutionTests.swift` 还原为修复前（两处 `!Thread.isMainThread`）→ `packages` 必须红（debug 与 release 都命中）；修复后必须绿。
+
 ### shell 变量展开边界（G10）
 
 `scripts/check-shell-quoting.sh` 静态扫描 `scripts/*.sh` 与 `.github/workflows/*.yml`：变量引用（`$` + 变量名）**紧跟非 ASCII 字节**（全角冒号、全角括号等多字节字符）时，bash 5.x + UTF-8 locale 会把多字节字节并入变量名 → `set -u` 下报 unbound variable；而 macOS 自带旧 bash（3.2.57）不重现 → 本地自验假绿、CI 才红。命中即红（打印 `文件:行: 原文`）；**fail-closed**：待扫目录缺失/不可读、或一个待扫文件都没有，一律判红。修法：花括号定界（`${VAR}`）。

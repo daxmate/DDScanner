@@ -5,6 +5,11 @@ import Foundation
 import Testing
 @testable import DDScannerCore
 
+/// 同步（非 async）包装：`Thread.isMainThread` 标了 `@available(*, noasync)`，
+/// 在 async 闭包里直接引用会告警（Swift 6 起为 error）。收进同步函数后，
+/// detached 闭包仍能真实断言「不在主线程执行」，测试语义不变。
+private func currentThreadIsMain() -> Bool { Thread.isMainThread }
+
 @Suite("后台执行等价性")
 struct BackgroundExecutionTests {
     private static let size = CGSize(width: 340, height: 260)
@@ -44,7 +49,7 @@ struct BackgroundExecutionTests {
         let reference = try #require(await MainActor.run { try? DocumentRectifier.rectify(source, quad: quad) })
 
         let (offThread, ranOffMain) = await Task.detached(priority: .userInitiated) {
-            (try? DocumentRectifier.rectify(source, quad: quad), !Thread.isMainThread)
+            (try? DocumentRectifier.rectify(source, quad: quad), !currentThreadIsMain())
         }.value
 
         #expect(ranOffMain, "detached 任务必须不在主线程执行，否则本测试跟不住线程偏差")
@@ -56,7 +61,7 @@ struct BackgroundExecutionTests {
         let detection = DocumentDetection(quad: Self.quad, confidence: 0.77)
         let reference = await MainActor.run { FrontEndPlanner.decide(detection: detection, sourceSize: Self.size) }
         let (offThread, ranOffMain) = await Task.detached {
-            (FrontEndPlanner.decide(detection: detection, sourceSize: Self.size), !Thread.isMainThread)
+            (FrontEndPlanner.decide(detection: detection, sourceSize: Self.size), !currentThreadIsMain())
         }.value
         #expect(ranOffMain)
         #expect(offThread == reference)
