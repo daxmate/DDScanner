@@ -141,3 +141,25 @@ Debug + Release 各一份），再按实测数据提速。
 - **不误伤透视矫正**：`DocumentRectifier` 的网格**本就该按四边形铺满**，本批**未改动**、也不调用本入口。
 - **契约**：`SourceCoveringGridTests`（内容不丢正向 + 修复前 = 0 的反向锚 + 内部几何逐点残差 = 0 +
   no-op + 退化 + 外推几何钉死）；Core 用例数下限 95 → **104**。
+
+## 批 25：纸张增强（去折痕 / 提白 / 换纸色）
+
+大象需求：「把亮度高于某个数值的像素都变成白纸的颜色，就可以把纸面上的折痕消除。」拍板做进 App、
+几种纸色都放进去（默认白、用户在设置里选）、默认白度 **255 档**、PS 死白 **310 档**留用户拉；
+本批只做 **Core 引擎 + 参数 + 自测页接入**（App 尚无设置页 / 扫描 UI）。
+
+- **Core 新增**：`Imaging/PaperEnhancer.swift`（纯函数式增强器 + 选项 + 纸色预设 + sRGB ↔ 线性查表）
+  与 `Imaging/LinearMorphology.swift`（线性域大核椭圆形态学闭）。分层不变：
+  仍只依赖 Foundation / CoreGraphics / Accelerate（`check-forbidden-imports.sh` 守着）。
+  - 选项：`whiteness`（纸面亮度目标，编码域 0–255，默认 255、上限 310，超出钳制）、
+    `paperColor`（默认白；预设 白 / 米白 / 暖黄）；`nil` = 关闭 = **逐字节 no-op**。
+  - 算法 = 唯一实测通过的「B」：线性域亮度 → 大核形态学闭估底色（核宽 = 图宽 3.78%，自适应）
+    → 92 分位抹平阴影 → **亮度单增益**（不逐通道）→ 乘性纸色 → 回编码域。
+- **接线（本批）**：`App/Dev/DewarpSelfTestRunner.swift` / `DewarpSelfTestView.swift` —— 真机上可切
+  关闭 / 255 / 310 × 白 / 米白 / 暖黄，并列预览 + 全分辨率当前档。
+- **生产路径待接**：`ScanPipeline` 目前只产 `SampleGrid`（**尚无像素消费者**，见批 20 同款说明）；
+  位置定为**去畸变之后、导出之前**：等扫描 UI 让网格落像素那一处，把 `PaperEnhancer.enhance` 接上去，
+  并把选项（白度 / 纸色）挂到届时新增的设置页。**默认 `nil` 时行为完全不变**。
+- **与参考实现逐像素对齐**：真图 10.26 MP，`mean|Δ|` = 1.4e-5 / 255（255 档）、1.1e-5 / 255（310 档），
+  `p99` = 0.00/255，`max|Δ|` = 1，>2 像素 = 0。
+- **契约**：`PaperEnhancerTests`（12 条）+ 登记见 `docs/contract-register.md`；Core 用例下限 104 → **116**。
