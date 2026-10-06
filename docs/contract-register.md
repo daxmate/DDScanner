@@ -133,3 +133,19 @@ CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scr
 - 注释行不豁免（同类写法被粘贴回代码同样是隐患）。
 - CI 落点：`ci.yml` job `gates` 的 step「shell 变量展开边界（G10）」。
 - 自证：往任一 `scripts/*.sh` 注入一行引用后紧跟全角字符的 `echo` → 必须红；还原后必须绿。
+
+### 去畸变「恒等门控」原型（批 26）
+
+大象反馈「没有畸变（只有几何变形）时 UVDoc 也会当做有畸变来处理」。本批只做**度量 + DEBUG 门控原型**，
+不改生产管线、不训练模型。
+
+- **新增 Core 单测**：`Sources/DDScannerCore/Tests/DDScannerCoreTests/GridIdentityDeviationTests.swift`
+  —— 两个 Suite（`GridIdentityDeviation` / `DewarpIdentityGate`，共 10 条）：恒等网格偏离恰好 0
+  （含 1×1 退化网格不崩）/ 非有限值（NaN / ±∞）→ `deviationFromIdentity() == nil` / 逐轴仿射缩放
+  归一化后偏离回 0（只看形变不看缩放）/ 手算算例钉死（3×2 单点平移 (0.3, 0.4) → max 0.5、rms 0.5/√6）/
+  门控：恒等 → `.bypass`、超阈值 → `.dewarp`、度量不可用 → `.indeterminate`、**边界值（== 阈值）→
+  `.bypass`**、负阈值钳到 0。
+- **用例下限变更**：Core 用例数下限 **116 → 126**（`.github/workflows/ci.yml` 的
+  `check-test-signal.sh … "DDScannerCore 单测"`；本批实跑 `Test run with 126 tests`）。
+- **本批不新增** `Tests/ContractTests/*ContractTests.swift`，也不动 `Tests/Fixtures/**` ⇒ **契约清单表
+  （G3–G6）无需登记**；本文只登记 Core 单测与下限变更。
