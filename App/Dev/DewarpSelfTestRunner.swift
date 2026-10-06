@@ -118,6 +118,10 @@
         var iterations: Int
         var inputSize: String
         var gridSize: String
+        /// 网格相对恒等网格的偏离（批 26；算在覆盖整幅源图的网格上）。
+        var gridDeviationText: String
+        /// 恒等门控结论（批 26；仅 DEBUG 自测页可开）。
+        var dewarpGateText: String
         var preprocessMilliseconds: Double
         var inferenceMinimumMilliseconds: Double
         var inferenceMedianMilliseconds: Double
@@ -190,6 +194,7 @@
             device: String,
             iterations: Int,
             paperSelection: PaperEnhanceSelection = PaperEnhanceSelection(),
+            dewarpGate: DewarpIdentityGate? = nil,
             progress: @Sendable (DewarpSelfTestStage) -> Void = { _ in }
         ) throws -> DewarpSelfTestReport {
             try Task.checkCancellation()
@@ -293,8 +298,48 @@
                 "去畸变网格覆盖整幅源图：\(grid.columns)×\(grid.rows) → \(coveringGrid.columns)×\(coveringGrid.rows)",
                 category: .dewarp
             )
-            let dewarped = GridResampler.resample(grid: coveringGrid, source: fullImage)
-            let resample = (CFAbsoluteTimeGetCurrent() - resampleStart) * 1000
+            // 批 26（仅 DEBUG 自测页）：恒等门控原型 —— 偏离度量算在**即将用于重采样**的 coveringGrid 上
+            // （原始模型网格的内缩不是畸变，拿它算会误判）。门控关闭时行为与批 25 完全一致。
+            let gridDeviation = coveringGrid.deviationFromIdentity()
+            let gridDeviationText = gridDeviation.map {
+                String(
+                    format: "max %.4f / rms %.4f（归一化，算在覆盖整幅源图的网格上）",
+                    Double($0.maximumMagnitude),
+                    Double($0.rmsMagnitude)
+                )
+            } ?? "不可用（网格含非有限值）"
+
+            var dewarped = fullImage
+            var didResample = false
+            let dewarpGateText: String
+            if let dewarpGate {
+                switch dewarpGate.decide(for: coveringGrid) {
+                case let .bypass(deviation):
+                    dewarpGateText = String(
+                        format: "门控：跳过去畸变（max %.4f ≤ 阈值 %.4f）",
+                        Double(deviation.maximumMagnitude),
+                        Double(dewarpGate.threshold)
+                    )
+                    AppLog.debug("去畸变恒等门控：跳过去畸变 —— \(dewarpGateText)", category: .dewarp)
+                case let .dewarp(deviation):
+                    dewarped = GridResampler.resample(grid: coveringGrid, source: fullImage)
+                    didResample = true
+                    dewarpGateText = String(
+                        format: "门控：正常去畸变（max %.4f > 阈值 %.4f）",
+                        Double(deviation.maximumMagnitude),
+                        Double(dewarpGate.threshold)
+                    )
+                    AppLog.debug("去畸变恒等门控：正常去畸变 —— \(dewarpGateText)", category: .dewarp)
+                case .indeterminate:
+                    dewarpGateText = "门控：网格度量不可用 → 保守跳过"
+                    AppLog.debug("去畸变恒等门控：网格度量不可用 → 保守跳过", category: .dewarp)
+                }
+            } else {
+                dewarped = GridResampler.resample(grid: coveringGrid, source: fullImage)
+                didResample = true
+                dewarpGateText = "门控关闭（本批新增，仅 DEBUG 自测页可开）"
+            }
+            let resample = didResample ? (CFAbsoluteTimeGetCurrent() - resampleStart) * 1000 : 0
             guard let dewarpedImage = FloatImageConverter.makeCGImage(from: dewarped) else {
                 throw DewarpSelfTestError.imageRenderFailed
             }
@@ -329,6 +374,8 @@
                 iterations: runs,
                 inputSize: "\(descriptor.inputWidth)×\(descriptor.inputHeight)",
                 gridSize: "\(grid.columns)×\(grid.rows) → \(coveringGrid.columns)×\(coveringGrid.rows)（覆盖整幅源图）",
+                gridDeviationText: gridDeviationText,
+                dewarpGateText: dewarpGateText,
                 preprocessMilliseconds: preprocess,
                 inferenceMinimumMilliseconds: sorted.first ?? 0,
                 inferenceMedianMilliseconds: sorted[sorted.count / 2],

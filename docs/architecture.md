@@ -165,3 +165,35 @@ Debug + Release 各一份），再按实测数据提速。
 - **与参考实现逐像素对齐**：真图 10.26 MP，`mean|Δ|` = 1.4e-5 / 255（255 档）、1.1e-5 / 255（310 档），
   `p99` = 0.00/255，`max|Δ|` = 1，>2 像素 = 0。
 - **契约**：`PaperEnhancerTests`（12 条）+ 登记见 `docs/contract-register.md`；Core 用例下限 104 → **116**。
+
+## 批 26：去畸变「恒等门控」原型（**仅 DEBUG 自测页**）
+
+大象反馈 UVDoc 的头号问题：**「没有畸变（只有几何变形）时 UVDoc 也会当做有畸变来处理」** ——
+已经在 Core Image 侧做过透视矫正、页面本来平整的图（单据 / 名片 / 平放纸），UVDoc 仍会给出一张
+非恒等的采样网格，于是被「多掰一道」。
+
+- **修法假设（本批只做度量 + DEBUG 门控原型，不做模型训练、不改生产管线）**：把 UVDoc 输出网格与
+  同分辨率**恒等网格**比对，位移小到阈值以下就判为「无需非线性矫正」→ **跳过重采样**，直接用
+  透视矫正后的图。
+- **⚠️ 度量口径**：位移必须算在**即将用于重采样**的那张网格上 —— 即已经过
+  `extendedToCoverSource()` 的「覆盖整幅源图」网格。UVDoc 原始网格常只覆盖源图一个子矩形
+  （各边内缩 1.3%–6.0%，批 20 实测），直接拿原始网格算会把这个内缩当成形变，度量失效。
+- **Core 新增（纯几何 / 纯策略，仍只依赖 Foundation）**：
+  `Geometry/GridIdentityDeviation.swift`（`NormalizedSampleGrid.deviationFromIdentity()` —— 逐点位移
+  向量模长的最大值 `maximumMagnitude` 与均方根 `rmsMagnitude`；恒等 → 恰好 0；任一坐标非有限值 →
+  `nil`）与 `Geometry/DewarpIdentityGate.swift`（`DewarpIdentityGate(threshold:)` 的
+  `decide(for:) -> Decision`：`maximumMagnitude <= threshold` → `.bypass`（**边界值算 bypass**）、
+  否则 `.dewarp`、度量为 `nil` → `.indeterminate`（保守不动作）；负阈值钳到 0）。
+  不新增第二份网格数学之外的重采样实现 —— 采样仍只有 `GridResampler` 一个入口。
+- **接线（仅 DEBUG 自测页）**：`App/Dev/DewarpSelfTestRunner.swift` 增 `dewarpGate:` 参数（默认
+  `nil`）与 `gridDeviationText` / `dewarpGateText` 两个报告字段；`DewarpSelfTestView.swift` 增
+  「恒等门控（DEBUG）」开关（默认**关**）+ 阈值 Slider（默认 0.02），指标表显示偏离与门控结论。
+  开关**关闭**时传 `nil`，行为与今天完全一致（逐字节不变）；开启后 `.bypass` / `.indeterminate`
+  跳过重采样（`resampleMilliseconds = 0`、`dewarpedImage = rectifiedImage`），`.dewarp` 照旧。
+- **生产路径不动**：`ScanPipeline` 仍只产 `SampleGrid`（**尚无像素消费者**），本批不改任何生产管线、
+  不改 `DDScannerDewarp/**` / `Models/**` / `Tools/ModelConvert/**`；**不做**混合 / 衰减
+  （blend / damping）—— 本批只做**硬跳过**原型。
+- **契约**：`GridIdentityDeviationTests`（`Tests/DDScannerCoreTests/GridIdentityDeviationTests.swift`）——
+  恒等 = 0（含 1×1 退化网格）/ 非有限值 → `nil` / 逐轴仿射缩放归一化后回 0（只看形变不看缩放）/
+  手算算例钉死 / 门控四态 + 负阈值钳 0。Core 用例数下限 116 → **126**。登记见 `docs/contract-register.md`。
+- **真机效果不做**：门控开关对比与阈值标定由用户真机验收；本地只做编译级验证（无模拟器）。

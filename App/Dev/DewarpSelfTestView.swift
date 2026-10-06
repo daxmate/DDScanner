@@ -41,6 +41,10 @@
         /// 纸张增强选择（去折痕 / 提白 / 换纸色）——改档后按「重跑」重算全分辨率结果。
         @State private var enhanceWhiteness: PaperWhitenessChoice = .conservative
         @State private var enhanceColor: PaperColorPreset = .white
+        /// 恒等门控（DEBUG 原型，批 26）：默认**关**（行为与今天完全一致）。
+        @State private var dewarpGateEnabled = false
+        /// 门控阈值（归一化 [-1,1] 尺度）；默认 0.02。
+        @State private var dewarpGateThreshold: Double = 0.02
         /// 点按某张图后进入全屏查看（nil = 未打开）。
         @State private var previewItem: ImagePreviewItem?
         /// 「点预览 → 全分辨率重算」任务（与主管线任务分离，互不取消）。
@@ -57,6 +61,7 @@
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     statusBlock
+                    gateBlock
                     if let report, !isRunning {
                         metricsBlock(report)
                         stageBlock(report)
@@ -111,6 +116,25 @@
             }
         }
 
+        /// 恒等门控控件（批 26，仅 DEBUG 自测页）：开关 + 阈值，改完按「重跑」生效。
+        /// 关闭时 `run(...)` 传 nil，行为与今天完全一致。
+        private var gateBlock: some View {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("去畸变门控（DEBUG 原型）").font(.headline)
+                Toggle("恒等门控（DEBUG）", isOn: $dewarpGateEnabled)
+                    .disabled(isRunning)
+                HStack(spacing: 8) {
+                    Text("阈值").font(.footnote).foregroundStyle(.secondary)
+                    Slider(value: $dewarpGateThreshold, in: 0.001 ... 0.20, step: 0.001)
+                        .disabled(!dewarpGateEnabled || isRunning)
+                    Text(String(format: "%.3f", dewarpGateThreshold))
+                        .font(.footnote).monospacedDigit()
+                }
+                Text("网格偏离 ≤ 阈值 → 跳过重采样，直接用透视矫正后的图（改完按「重跑」生效）")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+
         private func metricsBlock(_ report: DewarpSelfTestReport) -> some View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("实测数字").font(.headline)
@@ -124,6 +148,8 @@
                 row("裁切结果", report.rectifiedSize)
                 row("输入尺寸", report.inputSize)
                 row("输出网格", report.gridSize)
+                row("网格偏离（恒等）", report.gridDeviationText)
+                row("去畸变门控", report.dewarpGateText)
                 row("推理次数", "\(report.iterations)")
                 row("推理 min / median / max", String(
                     format: "%.2f / %.2f / %.2f ms",
@@ -398,6 +424,9 @@
             let iterations = iterations
             let isPicked = source.isPicked
             let paperSelection = PaperEnhanceSelection(whiteness: enhanceWhiteness, color: enhanceColor)
+            let dewarpGate = dewarpGateEnabled
+                ? DewarpIdentityGate(threshold: Float(dewarpGateThreshold))
+                : nil
 
             task = Task.detached(priority: .userInitiated) {
                 let photo: DevPhotoLoadResult
@@ -438,6 +467,7 @@
                         device: device,
                         iterations: iterations,
                         paperSelection: paperSelection,
+                        dewarpGate: dewarpGate,
                         progress: { stage in
                             Task { @MainActor in self.stage = stage }
                         }
