@@ -5,7 +5,8 @@
 //
 // 线程纪律（同自测页 P0）：解码 + 检测 + 矫正一律 `Task.detached`，结果经 `@MainActor` 回填；
 // 重拍 / 离页取消在途任务，取消后不回填过期结果。
-// 权限被拒 / 设备无相机 / 检测不到文档 → 各给一行明确原因，不崩、不留白屏。
+// 失败路径一律「一行原因 + 「重拍」入口」，不留 UI 死路；相机中断 / 运行时错误由服务上报事件，
+// 中断结束自动回到可拍。
 //
 // 明确不做（后续批次）：四角拖拽微调（B2）、导出（B3）、UVDoc 弯页去畸变（v1 外）。
 import CoreGraphics
@@ -24,7 +25,32 @@ struct CaptureFlowView: View {
         case result
         case denied
         case unavailable
-        case failed(String)
+        case failed(FailureReason)
+    }
+
+    /// 失败原因：既决定文案，也决定能否自动恢复。
+    enum FailureReason: Equatable {
+        /// 会话被系统中断（切后台 / 被占用 / 系统压力）；中断结束后自动回到可拍。
+        case interrupted
+        /// 会话运行时错误；服务已尝试自动重启，仍不可用则需点「重拍」。
+        case runtimeError
+        /// 拍摄时会话未在运行（未启动 / 已被停）。
+        case notRunning
+        /// 未能从照片中检测到文档边界。
+        case documentNotFound
+        /// 其它错误（细节已进 AppLog）。
+        case other
+
+        /// 屏幕上显示的一行原因。
+        var message: String {
+            switch self {
+            case .interrupted: return String(localized: "capture.interrupted")
+            case .runtimeError: return String(localized: "capture.runtimeError")
+            case .notRunning: return String(localized: "capture.notRunning")
+            case .documentNotFound: return String(localized: "capture.notFound")
+            case .other: return String(localized: "capture.failed")
+            }
+        }
     }
 
     @State private var phase: Phase = .preparing
@@ -42,6 +68,8 @@ struct CaptureFlowView: View {
             .task { await prepare() }
             .onDisappear {
                 task?.cancel()
+                // 断开与服务的长生命周期回调（服务持有本视图的闭包）。
+                camera?.onEvent = nil
                 camera?.stopRunning()
             }
     }
@@ -58,7 +86,7 @@ struct CaptureFlowView: View {
         case .unavailable:
             messageBlock(String(localized: "capture.unavailable"), symbol: "camera.metering.unknown")
         case let .failed(reason):
-            messageBlock(reason, symbol: "exclamationmark.triangle")
+            failureBlock(reason)
         default:
             cameraBlock
         }
@@ -101,18 +129,40 @@ struct CaptureFlowView: View {
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            Button {
-                retake()
-            } label: {
-                Text(String(localized: "capture.retake"))
-                    .font(.title3)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
+            retakeButton
 
             Spacer(minLength: 0)
         }
         .padding()
+    }
+
+    /// 失败页：一行原因 + 「重拍」入口（与结果页同一按钮形态），不留死路。
+    private func failureBlock(_ reason: FailureReason) -> some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.largeTitle)
+                Text(reason.message)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+            }
+            retakeButton
+
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+    }
+
+    /// 结果页与失败页共用的「重拍」按钮形态。
+    private var retakeButton: some View {
+        Button {
+            retake()
+        } label: {
+            Text(String(localized: "capture.retake"))
+                .font(.title3)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
     }
 
     private var busyOverlay: some View {
@@ -156,12 +206,13 @@ struct CaptureFlowView: View {
 
     // MARK: - 流程
 
-    /// 请求权限并启动预览。
+    /// 请求权限、挂上会话事件、启动预览。
     private func prepare() async {
         guard let camera else {
-            phase = .failed(String(localized: "capture.failed"))
+            fail(.other)
             return
         }
+        camera.onEvent = { event in handleCameraEvent(event) }
         switch await camera.prepare() {
         case .ready:
             camera.startRunning()
@@ -176,7 +227,7 @@ struct CaptureFlowView: View {
     /// 一次拍摄：拍照（全分辨率）→ 解码 → 自动检测 → 几何矫正 → 预览。
     private func capture() {
         guard let camera, let scanner else {
-            phase = .failed(String(localized: "capture.failed"))
+            fail(.other)
             return
         }
         task?.cancel()
@@ -197,7 +248,7 @@ struct CaptureFlowView: View {
             } catch is CancellationError {
                 // 页面已离开或已重拍：不回填过期结果。
             } catch {
-                phase = .failed(Self.message(for: error))
+                fail(Self.failureReason(for: error))
             }
         }
     }
@@ -209,12 +260,39 @@ struct CaptureFlowView: View {
         camera?.startRunning()
     }
 
-    /// 把底层错误收敛成一行可读原因（检测不到文档是最常见的一种）。
-    private static func message(for error: any Error) -> String {
+    /// 统一失败出口：落状态 + 停会话。
+    ///
+    /// 中断时**不**调 `stopRunning()`：会话已由系统停住，而 `stopRunning()` 会清掉服务的
+    /// 「期望运行」意图，导致中断结束后无法自动恢复（自动恢复正是本路径要的）。
+    private func fail(_ reason: FailureReason) {
+        task?.cancel()
+        phase = .failed(reason)
+        if reason != .interrupted {
+            camera?.stopRunning()
+        }
+    }
+
+    /// 会话事件：中断给一行原因；中断结束自动回到可拍；运行时错误提示重拍。
+    private func handleCameraEvent(_ event: CameraCaptureEvent) {
+        switch event {
+        case .interrupted:
+            fail(.interrupted)
+        case .resumed:
+            if phase == .failed(.interrupted) { phase = .ready }
+        case .runtimeError:
+            fail(.runtimeError)
+        }
+    }
+
+    /// 底层错误 → 失败原因（细节写日志，界面只给一行）。
+    private static func failureReason(for error: any Error) -> FailureReason {
+        if let cameraError = error as? CameraCaptureError, cameraError == .sessionNotRunning {
+            return .notRunning
+        }
         if let scannerError = error as? ScannerError, scannerError == .documentNotFound {
-            return String(localized: "capture.notFound")
+            return .documentNotFound
         }
         AppLog.error("拍摄流程失败：\(error)", category: .capture)
-        return String(localized: "capture.failed")
+        return .other
     }
 }

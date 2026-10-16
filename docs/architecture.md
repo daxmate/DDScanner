@@ -185,6 +185,11 @@ v1 的第一个产品切片：首页「拍摄文档」→ 相机取景 → 拍�
   构造，经 `ScanEnvironment` 下发；消费端登记在 `Tests/Fixtures/environment-consumers.tsv`。
 - **线程纪律（P0）**：拍摄后的解码 + 检测 + 矫正一律 `Task.detached`，结果经 `@MainActor` 回填；
   重拍 / 离页 `cancel()` 在途任务，取消后不回填过期结果。
-- **降级**：权限被拒 / 设备无相机 / 检测不到文档 → 各显示一行明确原因，不崩、不留白屏。
+- **降级与失败路径**：权限被拒 / 设备无相机 / 检测不到文档 / 会话中断 / 运行时错误 → 各显示一行原因
+  + 「重拍」入口（不留 UI 死路）；进失败态即停会话（中断除外，见下）。
+- **中断与错误恢复**：观察 `AVCaptureSession` 的 `wasInterrupted` / `interruptionEnded` /
+  `runtimeError` 三种通知；中断只在界面给一行原因，**中断结束自动重启会话并回到可拍**；运行时错误
+  记日志并尝试自动重启，仍不可用则回到「重拍」。`capturePhoto()` 前校验 `session.isRunning`；
+  中断与错误处理全部留在 App 层，不进 Core / Vision。
 - **本地验证**：相机与视觉链路真机才作数，iOS 侧只做编译级验证 + 代码审查；真机验收项见
   `docs/device-acceptance-checklist.md`「拍摄与检测」。

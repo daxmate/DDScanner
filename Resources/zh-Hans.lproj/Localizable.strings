@@ -15,3 +15,6 @@
 "capture.unavailable" = "此设备没有可用的相机。";
 "capture.notFound" = "未能检测到文档边界，请把文档完整放入取景框后重拍。";
 "capture.failed" = "拍摄或处理失败，请重试。";
+"capture.interrupted" = "相机被系统中断（可能被其它 App 占用或切到后台）。中断结束后会自动恢复，也可点「重拍」重试。";
+"capture.runtimeError" = "相机发生运行时错误，已尝试自动恢复。若仍不可用，请点「重拍」重试。";
+"capture.notRunning" = "相机未在取景状态，无法拍摄。请点「重拍」重新开始。";
