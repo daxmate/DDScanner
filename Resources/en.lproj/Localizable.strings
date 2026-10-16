@@ -16,5 +16,6 @@
 "capture.notFound" = "No document boundary detected. Fit the document inside the frame and retake.";
 "capture.failed" = "Capture or processing failed. Please try again.";
 "capture.interrupted" = "The camera was interrupted (another app may be using it, or the app moved to the background). It recovers automatically once the interruption ends; you can also tap Retake.";
-"capture.runtimeError" = "The camera hit a runtime error and a recovery was attempted. Tap Retake if it is still unavailable.";
+"capture.recoveryFailed" = "The camera could not recover automatically. Tap Retake to try again.";
 "capture.notRunning" = "The camera is not in a ready state, so it cannot capture. Tap Retake to restart.";
+"capture.recovering" = "Recovering the camera…";

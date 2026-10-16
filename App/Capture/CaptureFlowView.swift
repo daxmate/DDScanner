@@ -5,8 +5,11 @@
 //
 // 线程纪律（同自测页 P0）：解码 + 检测 + 矫正一律 `Task.detached`，结果经 `@MainActor` 回填；
 // 重拍 / 离页取消在途任务，取消后不回填过期结果。
-// 失败路径一律「一行原因 + 「重拍」入口」，不留 UI 死路；相机中断 / 运行时错误由服务上报事件，
-// 中断结束自动回到可拍。
+//
+// 恢复语义（与服务的事件一一对应）：
+//   - 中断 / 自动恢复进行中 → 只给**不打断**的提示，不进失败态；
+//   - 自动恢复成功 → 留在原态；
+//   - 只有「已尝试重启且仍不可用」（`.recoveryFailed`）才进失败态并给「重拍」入口。
 //
 // 明确不做（后续批次）：四角拖拽微调（B2）、导出（B3）、UVDoc 弯页去畸变（v1 外）。
 import CoreGraphics
@@ -28,12 +31,12 @@ struct CaptureFlowView: View {
         case failed(FailureReason)
     }
 
-    /// 失败原因：既决定文案，也决定能否自动恢复。
+    /// 失败原因：既决定文案，也说明是怎么走到这一步的。
     enum FailureReason: Equatable {
-        /// 会话被系统中断（切后台 / 被占用 / 系统压力）；中断结束后自动回到可拍。
+        /// 会话被系统中断（切后台 / 被占用 / 系统压力）；中断结束后会自动回到可拍。
         case interrupted
-        /// 会话运行时错误；服务已尝试自动重启，仍不可用则需点「重拍」。
-        case runtimeError
+        /// 已尝试自动重启且仍不可用（运行时错误达上限，或中断结束后起不来）。
+        case recoveryFailed
         /// 拍摄时会话未在运行（未启动 / 已被停）。
         case notRunning
         /// 未能从照片中检测到文档边界。
@@ -45,7 +48,7 @@ struct CaptureFlowView: View {
         var message: String {
             switch self {
             case .interrupted: return String(localized: "capture.interrupted")
-            case .runtimeError: return String(localized: "capture.runtimeError")
+            case .recoveryFailed: return String(localized: "capture.recoveryFailed")
             case .notRunning: return String(localized: "capture.notRunning")
             case .documentNotFound: return String(localized: "capture.notFound")
             case .other: return String(localized: "capture.failed")
@@ -57,21 +60,28 @@ struct CaptureFlowView: View {
     @State private var correctedImage: CGImage?
     /// 在途任务（重拍 / 离页时取消）。
     @State private var task: Task<Void, Never>?
+    /// 相机正在自动恢复（只提示、不打断、不锁失败态）。
+    @State private var isRecovering = false
 
     private var camera: CameraCaptureService? { scanEnvironment?.camera }
     private var scanner: PhotoScanRunner? { scanEnvironment?.photoScanner }
 
     var body: some View {
-        content
-            .navigationTitle(String(localized: "capture.title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .task { await prepare() }
-            .onDisappear {
-                task?.cancel()
-                // 断开与服务的长生命周期回调（服务持有本视图的闭包）。
-                camera?.onEvent = nil
-                camera?.stopRunning()
+        VStack(spacing: 0) {
+            if isRecovering {
+                recoveringNotice
             }
+            content
+        }
+        .navigationTitle(String(localized: "capture.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await prepare() }
+        .onDisappear {
+            task?.cancel()
+            // 断开与服务的长生命周期回调（服务持有本视图的闭包；同时让服务停止自愈）。
+            camera?.onEvent = nil
+            camera?.stopRunning()
+        }
     }
 
     // MARK: - 视图
@@ -90,6 +100,18 @@ struct CaptureFlowView: View {
         default:
             cameraBlock
         }
+    }
+
+    /// 不打断的恢复提示：恢复期间禁用快门，但用户不会被踢出当前界面。
+    private var recoveringNotice: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+            Text(String(localized: "capture.recovering"))
+                .font(.footnote)
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(.yellow.opacity(0.15))
     }
 
     private var cameraBlock: some View {
@@ -114,7 +136,7 @@ struct CaptureFlowView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(phase != .ready)
+            .disabled(phase != .ready || isRecovering)
 
             Spacer(minLength: 0)
         }
@@ -256,7 +278,9 @@ struct CaptureFlowView: View {
     private func retake() {
         task?.cancel()
         correctedImage = nil
+        isRecovering = false
         phase = .ready
+        // 用户显式重来：startRunning() 会清零退避计数，重新武装自愈。
         camera?.startRunning()
     }
 
@@ -272,15 +296,25 @@ struct CaptureFlowView: View {
         }
     }
 
-    /// 会话事件：中断给一行原因；中断结束自动回到可拍；运行时错误提示重拍。
+    /// 会话事件 → 界面状态（语义与服务一一对应）。
     private func handleCameraEvent(_ event: CameraCaptureEvent) {
         switch event {
         case .interrupted:
+            isRecovering = false
             fail(.interrupted)
         case .resumed:
+            // 服务已确认会话真的在跑，此时才允许回到可拍（避免恢复窗口里点快门撞 sessionNotRunning）。
+            isRecovering = false
             if phase == .failed(.interrupted) { phase = .ready }
-        case .runtimeError:
-            fail(.runtimeError)
+        case .recoveryStarted:
+            // 自动重试进行中：只给不打断的提示，不进失败态（恢复成功会留在原态）。
+            isRecovering = true
+        case .recoverySucceeded:
+            isRecovering = false
+        case .recoveryFailed:
+            // 已尝试重启且仍不可用——只有到这一步才进失败态。
+            isRecovering = false
+            fail(.recoveryFailed)
         }
     }
 
