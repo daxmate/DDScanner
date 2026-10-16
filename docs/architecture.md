@@ -189,11 +189,13 @@ v1 的第一个产品切片：首页「拍摄文档」→ 相机取景 → 拍�
   + 「重拍」入口（不留 UI 死路）；进失败态即停会话（中断除外，见下）。
 - **中断与错误恢复**：观察 `AVCaptureSession` 的 `wasInterrupted` / `interruptionEnded` /
   `runtimeError` 三种通知，事件语义与界面一一对应：
-  - 中断 → 界面给一行原因 + **不打断**的「正在恢复」提示（不进失败态）；
-  - 中断结束 → 重启会话，**确认 `session.isRunning` 之后**才回到可拍（避免恢复窗口里点快门撞
-    `sessionNotRunning`）；起不来才进失败态；
-  - 运行时错误 → 按**退避 0.5s / 2s / 5s + 上限 3 次**自动重启；恢复成功留在原态，
-    **只有「已尝试重启且仍不可用」才进失败态**并给「重拍」；
+  - 中断（`interrupted`）→ 会话由系统停住；界面进失败态，给**一行原因**（`capture.interrupted`）
+    + 「重拍」入口（不主动 `stopRunning()`，否则会清掉自动恢复意图）；
+  - 中断结束（`resumed`）→ 重启会话，**确认 `session.isRunning` 之后**才发事件、收回可拍
+    （避免恢复窗口里点快门撞 `sessionNotRunning`）；起不来则进失败态（`recoveryFailed`）；
+  - 运行时错误（`recoveryStarted` / `recoverySucceeded` / `recoveryFailed`）→ 界面先给**不打断**的
+    「正在恢复」提示（`capture.recovering`，期间禁用快门、**不进失败态**）；服务按**退避 0.5s / 2s /
+    5s + 上限 3 次**自动重启；恢复成功留在原态，**只有「已尝试重启且仍不可用」才进失败态**并给「重拍」；
   - 界面卸载（`onEvent == nil`）时**不自愈**（没有消费者就不自动重启）；用户点「重拍」会清零退避计数、
     重新武装自愈。
   `capturePhoto()` 前校验 `session.isRunning`；中断与错误处理全部留在 App 层，不进 Core / Vision。
