@@ -91,8 +91,8 @@ Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
   （载入 → 检测 → 矫正 → 预处理 → 推理 n/N → 重采样）。取消与进度契约收在 Core 的
   `StagedLoop`（逐轮检查取消 + 回报进度，本机可测）。大图守卫：源平面像素数必须
   ≤ `GridResampler.maximumSourcePixelCount`（2^24），否则明确报错。
-- **仍未接管线**：`ScanPipeline` 的 `DocumentDetecting`（帧几何入口）仍不含像素，相机/拍摄/
-  四角微调属后续批次；本批的像素前段由自测页直接消费。
+- **仍未接管线**：`ScanPipeline` 的 `DocumentDetecting`（帧几何入口）仍不含像素，四角微调属后续
+  批次（批 B2）。相机拍摄与像素前段已在**批 B1** 接上（见文末「批 B1」）。
 
 ## 批 10：透视矫正的分解计时与提速
 
@@ -165,3 +165,26 @@ Debug + Release 各一份），再按实测数据提速。
 - **与参考实现逐像素对齐**：真图 10.26 MP，`mean|Δ|` = 1.4e-5 / 255（255 档）、1.1e-5 / 255（310 档），
   `p99` = 0.00/255，`max|Δ|` = 1，>2 像素 = 0。
 - **契约**：`PaperEnhancerTests`（12 条）+ 登记见 `docs/contract-register.md`；Core 用例下限 104 → **116**。
+
+
+## 批 B1：相机拍摄 → 自动检测 → 几何矫正 → 预览
+
+v1 的第一个产品切片：首页「拍摄文档」→ 相机取景 → 拍摄（全分辨率）→ 自动检测四角 → 透视矫正 +
+裁切 → 屏内预览矫正结果（可重拍）。**四角拖拽微调（B2）、导出（B3）、UVDoc 弯页去畸变（v1 外）**
+明确不做。
+
+- **分层**：相机采集（AVFoundation）**只留在 App 层**，不进 Core / Vision / Dewarp / Export；
+  检测与几何**复用既有后端**，不新增第二份实现：
+  - 采集：`App/Capture/CameraCaptureService.swift`（会话配置 / 权限 / 拍摄，专用串行队列）、
+    `App/Capture/CameraPreviewView.swift`（预览层包装）、
+    `App/Capture/CapturedPhotoDecoder.swift`（ImageIO 摆正 EXIF + 最长边封顶 4032）。
+  - 编排：`App/Capture/PhotoScanRunner.swift` —— `ImageDocumentDetecting`（Vision 四角）→
+    `CoreImagePerspectiveCorrector.correctedImage(from:quad:)`（几何在 Core 的 `DocumentRectifier`）。
+  - 界面：`App/Capture/CaptureFlowView.swift`（阶段机 + 预览；只驱动，不 new 实现）。
+- **装配**：`PhotoScanRunner` 与 `CameraCaptureService` 均在唯一装配点 `AppCompositionRoot.swift`
+  构造，经 `ScanEnvironment` 下发；消费端登记在 `Tests/Fixtures/environment-consumers.tsv`。
+- **线程纪律（P0）**：拍摄后的解码 + 检测 + 矫正一律 `Task.detached`，结果经 `@MainActor` 回填；
+  重拍 / 离页 `cancel()` 在途任务，取消后不回填过期结果。
+- **降级**：权限被拒 / 设备无相机 / 检测不到文档 → 各显示一行明确原因，不崩、不留白屏。
+- **本地验证**：相机与视觉链路真机才作数，iOS 侧只做编译级验证 + 代码审查；真机验收项见
+  `docs/device-acceptance-checklist.md`「拍摄与检测」。

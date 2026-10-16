@@ -5,3 +5,13 @@
 "scan.capture" = "拍摄文档";
 "scan.import" = "从相册导入";
 "export.pdf" = "导出 PDF";
+"capture.title" = "拍摄文档";
+"capture.shutter" = "拍摄";
+"capture.preparing" = "正在启动相机…";
+"capture.capturing" = "正在拍摄…";
+"capture.processing" = "正在检测并矫正…";
+"capture.retake" = "重拍";
+"capture.denied" = "未获得相机权限。请在「设置」中允许 DDScanner 使用相机。";
+"capture.unavailable" = "此设备没有可用的相机。";
+"capture.notFound" = "未能检测到文档边界，请把文档完整放入取景框后重拍。";
+"capture.failed" = "拍摄或处理失败，请重试。";

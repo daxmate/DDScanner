@@ -15,6 +15,7 @@
 		2937AC24A50814DBBF5BC127 /* DDScannerDewarp in Frameworks */ = {isa = PBXBuildFile; productRef = 3867B149DC40E76AEDED500F /* DDScannerDewarp */; };
 		2F0CC2C39704E19EABDA1A37 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 876337DB8AA7FA35FDA71382 /* Assets.xcassets */; };
 		2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3A46373D5509594445B0E7 /* DDScannerApp.swift */; };
+		3048E21EA67C20018BD41FCC /* CaptureFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51D362C3278145C17A7884F /* CaptureFlowView.swift */; };
 		38FECFD4E570830C4F2D0589 /* StructuralBudgetRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C8FB70A24CCDD46B14F310D /* StructuralBudgetRule.swift */; };
 		3C44DCE6C994E05B2FE38289 /* AppCompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */; };
 		417D656C5B6A63365F3F73FC /* EnvironmentInjectionContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D6AB1A084656AFABBD57F6B /* EnvironmentInjectionContractTests.swift */; };
@@ -24,9 +25,13 @@
 		4EDAD8BF7B5B5106D14CE532 /* DDScannerExport in Frameworks */ = {isa = PBXBuildFile; productRef = A6C4DB350CE9BD4FE73FFF8F /* DDScannerExport */; };
 		6796FB899EBC3DF24FF54246 /* DDScannerVision in Frameworks */ = {isa = PBXBuildFile; productRef = FDF0E05BB56C2AE7CA34B3EF /* DDScannerVision */; };
 		6C03AC5B321EE2A033CAAA83 /* DewarpSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */; };
+		837A17C67F513CCD926B0869 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12F81507FD3106671AA3F67 /* CameraPreviewView.swift */; };
 		866D150D9EDA61AB59A1144F /* FullScreenImageViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6831671A7AB7F142DE9C23F9 /* FullScreenImageViewer.swift */; };
 		8E79C245076E9DFF04A6B8EA /* RepoLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB542988F91A47B2FE31CCA /* RepoLayout.swift */; };
 		910B81C0D7848283FDA3E5F8 /* DevSampleDocument.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8A3FB536ED2433B9033364A2 /* DevSampleDocument.jpg */; };
+		B1708E01D7C335D521EC7593 /* PhotoScanRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCA80D7E146D67A329D9B60 /* PhotoScanRunner.swift */; };
+		B7B393C137968753F94C13D2 /* CapturedPhotoDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60984F398806DDE8C46A5897 /* CapturedPhotoDecoder.swift */; };
+		C9DF5C113A570AABF85D4F28 /* CameraCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2252F713A3B4C255C9DABC54 /* CameraCaptureService.swift */; };
 		D6F5CA911BDAC543B7253E92 /* DevPhotoLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40BA003B539A606E9DD5D589 /* DevPhotoLoader.swift */; };
 /* End PBXBuildFile section */
 
@@ -47,6 +52,7 @@
 		0D6AB1A084656AFABBD57F6B /* EnvironmentInjectionContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentInjectionContractTests.swift; sourceTree = "<group>"; };
 		134B46474B6187F940E9BA5F /* DDScannerCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerCore; path = Sources/DDScannerCore; sourceTree = SOURCE_ROOT; };
 		1C8FB70A24CCDD46B14F310D /* StructuralBudgetRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralBudgetRule.swift; sourceTree = "<group>"; };
+		2252F713A3B4C255C9DABC54 /* CameraCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCaptureService.swift; sourceTree = "<group>"; };
 		2270B00217D9D79C7EF1CE90 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		31BBCCCA60F30A3E1858254A /* UVDocGrid_fp16.mlpackage */ = {isa = PBXFileReference; path = UVDocGrid_fp16.mlpackage; sourceTree = "<group>"; };
 		3E6B0271733F51BF06944508 /* DewarpSelfTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DewarpSelfTestView.swift; sourceTree = "<group>"; };
@@ -54,6 +60,8 @@
 		4410D0DEDDCBC116347FAB24 /* ContractRegisterContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContractRegisterContractTests.swift; sourceTree = "<group>"; };
 		441A776ED52E0B1EB02F5B2C /* DDScannerVision */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerVision; path = Sources/DDScannerVision; sourceTree = SOURCE_ROOT; };
 		4E30C08A2D1C3073AAB50F71 /* DDScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DDScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4FCA80D7E146D67A329D9B60 /* PhotoScanRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoScanRunner.swift; sourceTree = "<group>"; };
+		60984F398806DDE8C46A5897 /* CapturedPhotoDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapturedPhotoDecoder.swift; sourceTree = "<group>"; };
 		6831671A7AB7F142DE9C23F9 /* FullScreenImageViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenImageViewer.swift; sourceTree = "<group>"; };
 		876337DB8AA7FA35FDA71382 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8A3FB536ED2433B9033364A2 /* DevSampleDocument.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = DevSampleDocument.jpg; sourceTree = "<group>"; };
@@ -62,7 +70,9 @@
 		AAB2F4E403704D83C355AC40 /* DDScannerExport */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DDScannerExport; path = Sources/DDScannerExport; sourceTree = SOURCE_ROOT; };
 		CCB542988F91A47B2FE31CCA /* RepoLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoLayout.swift; sourceTree = "<group>"; };
 		D1491D4D9E752258466687DE /* StructuralBudgetContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralBudgetContractTests.swift; sourceTree = "<group>"; };
+		D51D362C3278145C17A7884F /* CaptureFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlowView.swift; sourceTree = "<group>"; };
 		D6E2B68D5F02300BFDDF9DA2 /* LocalizationKeySetContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationKeySetContractTests.swift; sourceTree = "<group>"; };
+		F12F81507FD3106671AA3F67 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		F6E89B81624E1A6F1F87CB0C /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F99C9B92DB8E9826F3F23D56 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -158,6 +168,7 @@
 				02236435A15B6A6AAC4DC317 /* AppCompositionRoot.swift */,
 				2270B00217D9D79C7EF1CE90 /* ContentView.swift */,
 				8B3A46373D5509594445B0E7 /* DDScannerApp.swift */,
+				FAF98D2001A3EF03FD50D39F /* Capture */,
 				21CC5DF4647A77D95754432E /* Dev */,
 			);
 			path = App;
@@ -181,6 +192,18 @@
 				441A776ED52E0B1EB02F5B2C /* DDScannerVision */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		FAF98D2001A3EF03FD50D39F /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				2252F713A3B4C255C9DABC54 /* CameraCaptureService.swift */,
+				F12F81507FD3106671AA3F67 /* CameraPreviewView.swift */,
+				60984F398806DDE8C46A5897 /* CapturedPhotoDecoder.swift */,
+				D51D362C3278145C17A7884F /* CaptureFlowView.swift */,
+				4FCA80D7E146D67A329D9B60 /* PhotoScanRunner.swift */,
+			);
+			path = Capture;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -300,12 +323,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				3C44DCE6C994E05B2FE38289 /* AppCompositionRoot.swift in Sources */,
+				C9DF5C113A570AABF85D4F28 /* CameraCaptureService.swift in Sources */,
+				837A17C67F513CCD926B0869 /* CameraPreviewView.swift in Sources */,
+				3048E21EA67C20018BD41FCC /* CaptureFlowView.swift in Sources */,
+				B7B393C137968753F94C13D2 /* CapturedPhotoDecoder.swift in Sources */,
 				45EE6582662B5D1995B3DFD9 /* ContentView.swift in Sources */,
 				2FDB16DA367ACE101FF03081 /* DDScannerApp.swift in Sources */,
 				D6F5CA911BDAC543B7253E92 /* DevPhotoLoader.swift in Sources */,
 				24A8F1892BA2C623963F9CB8 /* DewarpSelfTestRunner.swift in Sources */,
 				6C03AC5B321EE2A033CAAA83 /* DewarpSelfTestView.swift in Sources */,
 				866D150D9EDA61AB59A1144F /* FullScreenImageViewer.swift in Sources */,
+				B1708E01D7C335D521EC7593 /* PhotoScanRunner.swift in Sources */,
 				0949B067BA79062698E9E3F2 /* UVDocGrid_fp16.mlpackage in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

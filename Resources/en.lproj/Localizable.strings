@@ -5,3 +5,13 @@
 "scan.capture" = "Capture document";
 "scan.import" = "Import from Photos";
 "export.pdf" = "Export as PDF";
+"capture.title" = "Capture Document";
+"capture.shutter" = "Capture";
+"capture.preparing" = "Starting camera…";
+"capture.capturing" = "Capturing…";
+"capture.processing" = "Detecting and correcting…";
+"capture.retake" = "Retake";
+"capture.denied" = "Camera access is not granted. Allow DDScanner to use the camera in Settings.";
+"capture.unavailable" = "No camera is available on this device.";
+"capture.notFound" = "No document boundary detected. Fit the document inside the frame and retake.";
+"capture.failed" = "Capture or processing failed. Please try again.";

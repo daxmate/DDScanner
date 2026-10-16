@@ -13,6 +13,10 @@ struct ScanEnvironment {
     let imageDetector: ImageDocumentDetecting
     /// 透视校正 + 裁切的平台成像后端（几何在 Core）。
     let perspectiveCorrector: CoreImagePerspectiveCorrector
+    /// 拍摄后的「自动检测 → 几何矫正」编排（复用上面两个后端，批 B1）。
+    let photoScanner: PhotoScanRunner
+    /// 相机采集服务（App 层唯一持有 AVFoundation 的位置）；页面只驱动，不自行 new。
+    let camera: CameraCaptureService
     /// 去畸变网格后端（UVDoc Core ML）；**模型缺失时为 nil**，消费端必须能降级处理、不得崩。
     let gridPredictor: GridPredicting?
     /// 模型装载结果的人话描述，供开发自测页显示（成功或失败原因）。
@@ -26,6 +30,8 @@ enum AppCompositionRoot {
     static func makeScanEnvironment() -> ScanEnvironment {
         let detector = VisionDocumentDetector()
         let corrector = CoreImagePerspectiveCorrector()
+        let photoScanner = PhotoScanRunner(detector: detector, corrector: corrector)
+        let camera = CameraCaptureService()
         let pipeline = ScanPipeline(
             detector: detector,
             corrector: corrector,
@@ -38,6 +44,8 @@ enum AppCompositionRoot {
             pipeline: pipeline,
             imageDetector: detector,
             perspectiveCorrector: corrector,
+            photoScanner: photoScanner,
+            camera: camera,
             gridPredictor: gridPredictor,
             dewarpStatus: dewarpStatus,
             dewarpComputeUnits: dewarpComputeUnits
