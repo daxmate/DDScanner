@@ -201,3 +201,25 @@ v1 的第一个产品切片：首页「拍摄文档」→ 相机取景 → 拍�
   `capturePhoto()` 前校验 `session.isRunning`；中断与错误处理全部留在 App 层，不进 Core / Vision。
 - **本地验证**：相机与视觉链路真机才作数，iOS 侧只做编译级验证 + 代码审查；真机验收项见
   `docs/device-acceptance-checklist.md`「拍摄与检测」。
+
+## 批 B2：四角拖拽微调
+
+B1 自动检测四角后，给用户一个四角拖拽微调界面；确认后用调整后的四角重新跑几何矫正，再显示结果预览
+（对标 CamScanner 基础交互）。
+
+- **几何（Core，平台无关）**：新增 `Sources/DDScannerCore/.../Geometry/QuadEditing.swift` —— 角点索引
+  （TL → TR → BR → BL，与 `DocumentQuad` 顺序一致）、aspect-fit 双向映射（图片 + 显示矩形 → 归一化 /
+  像素 ↔ 视图，含 letterbox 偏移）、拖拽夹紧（边界 + 相邻角最小距离，默认图片短边 2%、参数可注入）、
+  合法性判定（重合 / 非凸 / 面积过小，返回可诊断原因）。纯值计算、Sendable、无全局状态；单测
+  `QuadEditingTests.swift` 本机可跑。
+- **界面（App）**：新增 `App/Capture/QuadEditorView.swift` —— upright 原图 + 四边形外变暗遮罩 + 四边
+  连线 + 四个角手柄（视觉 16pt / 命中 44pt）+ 拖动中 2× 放大镜（跟随角点、十字准星、不挡按钮）。命名
+  坐标空间 `quadEditor`，禁全局坐标硬算；角手柄带 accessibilityLabel（本地化 key）。
+- **编排（App）**：`PhotoScanRunner` 拆成 `scan`（检测 + 首次矫正 → `PhotoScanOutcome`：upright 原图
+  + 归一化四角 + 矫正图 + 置信度）与 `correct(image:quad:)`（用调整后四角重新矫正）；复用同一
+  `CoreImagePerspectiveCorrector` / `DocumentRectifier`，无第二份透视实现。解码 / 检测 / 矫正仍在
+  `Task.detached`，结果 `@MainActor` 回填；重拍 / 离页 / 再次确认取消在途任务，过期结果不回填（P2-1）。
+- **流程（App）**：`CaptureFlowView` 状态机新增编辑阶段 ready → capturing → editing → processing →
+  result；确认后重新矫正进 result，重拍清空状态、恢复相机预览。
+- **本地化**：`quad.*` key 补齐 en / zh-Hans 两语言（契约 `LocalizationKeySet` 校验两语言不漏 key）。
+- **本地验证**：iOS 侧只做编译级验证 + 代码审查；拖拽手感 / 放大镜 / 无障碍由真机验收。

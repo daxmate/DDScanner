@@ -133,3 +133,10 @@ CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scr
 - 注释行不豁免（同类写法被粘贴回代码同样是隐患）。
 - CI 落点：`ci.yml` job `gates` 的 step「shell 变量展开边界（G10）」。
 - 自证：往任一 `scripts/*.sh` 注入一行引用后紧跟全角字符的 `echo` → 必须红；还原后必须绿。
+
+### 四角拖拽微调几何（QuadEditing，批 B2）
+
+新增 public Core API `QuadEditing`（`Sources/DDScannerCore/.../Geometry/QuadEditing.swift`）：角点索引、
+aspect-fit 双向映射、拖拽夹紧、合法性判定，纯值计算、无全局状态。**产品路径只有这一份映射 / 校验实现**，
+App 层 `QuadEditorView` 只做呈现与手势、不得复制（与「参考实现」节的反向约束同源：几何逻辑唯一）。由
+Core 单测 `QuadEditingTests.swift` 覆盖（本机可跑），不新增契约测试文件（无扫描型契约语义）。
