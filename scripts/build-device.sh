@@ -13,6 +13,8 @@ cd "${ROOT}"
 APP_NAME="DDScanner"
 APP_BUNDLE_ID="com.daxmate.DDScanner"
 DEVICE_LIST_TIMEOUT_SECONDS=20
+# devicectl 列表命令的硬超时：部分机器上它永不退出，绝不能让它卡住整个脚本。
+DEVICECTL_LIST_TIMEOUT_SECONDS=30
 
 CONFIG="Debug"
 RUN_GEN=1
@@ -87,8 +89,10 @@ run_with_timeout_to_file() {
 # 列出真机条目（每行制表符分隔「状态 \t 名称 \t UDID」）。
 #   状态 device  = 运行本脚本的这台 Mac 上可直接安装 / 启动
 #   状态 offline = 已配对但本机不可达（设备连在别的 Mac 上，或未插到本机）
-# 数据源用 `xcrun xctrace list devices`：`devicectl list devices` 在部分机器上会挂死（内部服务
-# 不返回，命令一直不退出），故设备检测不再依赖 devicectl；devicectl 仅保留给安装 / 启动。
+# 可达性第一口径：devicectl JSON（见下方 detect_device_via_devicectl）。devicectl 的隧道是按需
+# 建立的：xctrace 把设备列在「Devices Offline」不代表 devicectl 装不上，两者冲突时以 devicectl 为准。
+# 本函数只做 devicectl 不可用时的回退：`devicectl list devices` 在部分机器上会挂死（内部服务
+# 不返回，命令一直不退出），此时回退 xctrace 并明确提示「可能漏判」。
 # 只解析 `== Devices ==` 段（跳过该段第一行——运行本脚本的 Mac 自己）与 `== Devices Offline ==` 段；
 # 完全忽略 `== Simulators ==`（禁模拟器）。
 list_device_entries() {
@@ -154,13 +158,59 @@ list_device_entries() {
   done < "${out_file}"
 }
 
-# 解析目标真机：--device 优先；否则要求恰有一台本机可达真机。
-# 失败时把三种情形分开报错，便于自查（离线设备 / 完全没有设备 / 多台）。
+# 用 devicectl 检测可用真机：成功时 stdout 打印一个 UDID；
+# 没有可用设备返回 1（stderr 给出逐台跳过原因）；devicectl 本身不可用（超时 / 失败 / 无 JSON）返回 2。
+detect_device_via_devicectl() {
+  local json_file="${TMPDIR:-/tmp}/ddscanner-devicectl-$$.json"
+  rm -f "${json_file}"
+  local rc=0
+  run_with_timeout_to_file "${DEVICECTL_LIST_TIMEOUT_SECONDS}" /dev/null \
+    xcrun devicectl list devices --json-output "${json_file}" || rc=$?
+  if [[ "${rc}" -eq 124 ]]; then
+    echo "⚠️ devicectl list devices 超过 ${DEVICECTL_LIST_TIMEOUT_SECONDS}s 未返回（已强杀）" >&2
+    rm -f "${json_file}"
+    return 2
+  fi
+  if [[ "${rc}" -ne 0 || ! -s "${json_file}" ]]; then
+    echo "⚠️ devicectl list devices 执行失败（退出码 ${rc}，或未产出 JSON）" >&2
+    rm -f "${json_file}"
+    return 2
+  fi
+
+  local udid=""
+  if udid="$(python3 "${ROOT}/scripts/detect-device.py" "${json_file}")" && [[ -n "${udid}" ]]; then
+    rm -f "${json_file}"
+    printf '%s\n' "${udid}"
+    return 0
+  fi
+
+  echo "❌ devicectl 未发现可用于安装的 iOS 真机（逐台跳过原因）：" >&2
+  python3 "${ROOT}/scripts/detect-device.py" --explain "${json_file}" >/dev/null || true
+  rm -f "${json_file}"
+  return 1
+}
+
+# 解析目标真机：--device 优先；否则以 devicectl 为准，devicectl 不可用时回退 xctrace（可能漏判）。
+# 失败时把情形分开报错，便于自查（离线设备 / 完全没有设备 / 多台）。
 resolve_device() {
   if [[ -n "${DEVICE}" ]]; then
     printf '%s' "${DEVICE}"
     return 0
   fi
+
+  local rc=0 udid=""
+  udid="$(detect_device_via_devicectl)" || rc=$?
+  if [[ "${rc}" -eq 0 && -n "${udid}" ]]; then
+    echo "▶ 设备检测：devicectl（可达性以 devicectl JSON 为准）" >&2
+    printf '%s\n' "${udid}"
+    return 0
+  fi
+  if [[ "${rc}" -eq 1 ]]; then
+    return 1
+  fi
+
+  echo "⚠️ 本机 devicectl 不可用（超时或失败），已回退 xctrace —— 可能漏判可达设备；建议在正常终端里手动指定 --device <udid>" >&2
+
   local entries
   if ! entries="$(list_device_entries)"; then
     return 1

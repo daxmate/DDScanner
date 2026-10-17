@@ -51,7 +51,8 @@ bash scripts/build-device.sh --device <udid|名称> --install   # 指定真机
 
 - 产物：`.build/DerivedData/Build/Products/<Debug|Release>-iphoneos/DDScanner.app`（绝对路径由脚本打印）。
 - `--install` / `--launch` 未给 `--device` 时自动取**唯一**本机可达真机；0 台或多台会明确报错并列出候选。
-- 设备检测用 `xcrun xctrace list devices`（`xcrun devicectl list devices` 在部分 Mac 上会挂死）；检测带超时保护，只认 `== Devices ==` 段，忽略 `== Devices Offline ==` 与 `== Simulators ==`。设备已配对但只连在别的 Mac 上时会单独提示（含名称 / UDID），提示改用有设备的机器或 `--device`。
+- 设备检测**以 `xcrun devicectl list devices --json-output` 的 JSON 为准**（`scripts/detect-device.py`，移植自同一维护者的 qqplayer-swift）：devicectl 的隧道是**按需建立**的，`xctrace` 把设备列在 `== Devices Offline ==` **不代表不能安装**，两者冲突时以 devicectl 为准。
+- 检测失败时会把**每台设备被跳过原因**打到 stderr（`detect-device.py --explain`）。`devicectl list devices` 在部分 Mac 上会挂死 → 列表命令带 **30s 硬超时**；超时/失败/无 JSON 时回退 `xcrun xctrace list devices`，并明确提示「可能漏判可达设备」，此时建议在正常终端里手动 `--device <udid>`。设备已配对但只连在别的 Mac 上时会单独提示（含名称 / UDID）。
 - 与 CI 的区别：CI 只做**编译级验证**（模拟器通用目标 + 关闭签名）；本脚本面向**真机**
   （`generic/platform=iOS`），用于装到设备上做 UI / 性能验收（见 `docs/device-acceptance-checklist.md`）。
 
