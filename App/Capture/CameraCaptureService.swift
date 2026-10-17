@@ -42,6 +42,8 @@ enum CameraCaptureError: Error, Equatable {
     case unavailable
     /// 拍摄时会话未处于运行态（未启动 / 已被停 / 正被系统中断）。
     case sessionNotRunning
+    /// 拍照输出没有可用的视频连接（通常是会话配置异常或设备被占用）。
+    case noVideoConnection
     case captureFailed(String)
 }
 
@@ -148,9 +150,22 @@ final class CameraCaptureService: NSObject, @unchecked Sendable {
                     continuation.resume(throwing: CameraCaptureError.sessionNotRunning)
                     return
                 }
+                guard let connection = self.photoOutput.connection(with: .video), connection.isEnabled else {
+                    continuation.resume(throwing: CameraCaptureError.noVideoConnection)
+                    return
+                }
                 self.pruneFinishedDelegates()
                 let settings = AVCapturePhotoSettings()
-                settings.photoQualityPrioritization = .quality
+                // 请求值必须收敛到本输出声明的上限：默认上限是 .balanced，直接请求 .quality
+                // 会被 AVFoundation 以 NSInvalidArgumentException 拒绝（无法捕获 → 真机闪崩）。
+                let maxQuality = self.photoOutput.maxPhotoQualityPrioritization
+                settings.photoQualityPrioritization = maxQuality.rawValue
+                    >= AVCapturePhotoOutput.QualityPrioritization.quality.rawValue ? .quality : maxQuality
+                AppLog.info(
+                    "开始拍照：maxQuality=\(maxQuality.rawValue) 请求=\(settings.photoQualityPrioritization.rawValue) "
+                        + "连接启用=\(connection.isEnabled) 输出格式=\(self.photoOutput.availablePhotoCodecTypes.count)",
+                    category: .capture
+                )
                 let delegate = PhotoCaptureDelegate(continuation: continuation)
                 self.pendingDelegates[settings.uniqueID] = delegate
                 self.photoOutput.capturePhoto(with: settings, delegate: delegate)
@@ -196,6 +211,9 @@ final class CameraCaptureService: NSObject, @unchecked Sendable {
         session.addInput(input)
         guard session.canAddOutput(photoOutput) else { throw CameraCaptureError.configurationFailed }
         session.addOutput(photoOutput)
+        // 显式抬高本输出的质量上限（默认 .balanced）：拍摄时请求 .quality 超过上限会被
+        // AVFoundation 抛 NSInvalidArgumentException —— 该异常无法在 Swift 侧捕获，直接闪崩。
+        photoOutput.maxPhotoQualityPrioritization = .quality
         isConfigured = true
         AppLog.info("相机会话就绪（后置广角，photo 预设）", category: .capture)
     }
