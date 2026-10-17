@@ -223,3 +223,16 @@ B1 自动检测四角后，给用户一个四角拖拽微调界面；确认后�
   result；确认后重新矫正进 result，重拍清空状态、恢复相机预览。
 - **本地化**：`quad.*` key 补齐 en / zh-Hans 两语言（契约 `LocalizationKeySet` 校验两语言不漏 key）。
 - **本地验证**：iOS 侧只做编译级验证 + 代码审查；拖拽手感 / 放大镜 / 无障碍由真机验收。
+
+## 批 B3 补：沙盒文件在「文件」App 可见（显式 Info.plist）
+
+B3 导出 JPEG/PDF 到 Documents/Scans 后，发现「文件」App 看不到 DDScanner 的 Documents——根因是
+`GENERATE_INFOPLIST_FILE` + `INFOPLIST_KEY_` 机制里 `INFOPLIST_KEY_UIFileSharingEnabled` 不会进最终
+Info.plist（`INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace` 却会，只有文件共享这个键不生效）。
+
+- **改为显式 Info.plist**：app target 走 XcodeGen `info:` 生成 `App/Info.plist`（`INFOPLIST_FILE`），
+  关掉 `GENERATE_INFOPLIST_FILE`；相机/相册用途描述、方向、启动屏、scene manifest 等原 `INFOPLIST_KEY_`
+  全部迁入显式 plist，测试 target 的自动 plist 不动。
+- **⚠️ 显式 plist 必须保留 `UIFileSharingEnabled = true`**（与 `LSSupportsOpeningDocumentsInPlace = true`
+  一起），否则沙盒文件在「文件」App 不可见。
+- 版本键走标准变量 `$(MARKETING_VERSION)` / `$(CURRENT_PROJECT_VERSION)`（project.yml 里定 1.0 / 1）。
