@@ -23,6 +23,10 @@ struct ScanEnvironment {
     let dewarpStatus: String
     /// 请求的算力单元（MLComputeUnits）；模型不可用时为「不可用」。
     let dewarpComputeUnits: String
+    /// 位图导出器（批 B3）：把矫正后的 CGImage 写成 JPEG + PDF，落到沙盒（组合根唯一装配点）。
+    let scanFileExporter: ScanFileExporter
+    /// 导出根目录（沙盒 Documents/Scans）。
+    let exportRootURL: URL
 }
 
 enum AppCompositionRoot {
@@ -38,6 +42,8 @@ enum AppCompositionRoot {
             dewarp: nil,
             exporter: PDFPageExporter()
         )
+        let scanFileExporter = ScanFileExporter()
+        let exportRootURL = Self.exportRootURL()
         let (gridPredictor, dewarpStatus, dewarpComputeUnits) = makeDewarpBackend()
         AppLog.info("扫描管线装配完成（去畸变：\(dewarpStatus)）", category: .app)
         return ScanEnvironment(
@@ -48,8 +54,17 @@ enum AppCompositionRoot {
             camera: camera,
             gridPredictor: gridPredictor,
             dewarpStatus: dewarpStatus,
-            dewarpComputeUnits: dewarpComputeUnits
+            dewarpComputeUnits: dewarpComputeUnits,
+            scanFileExporter: scanFileExporter,
+            exportRootURL: exportRootURL
         )
+    }
+
+    /// 位图导出根目录：沙盒 Documents/Scans（批 B3）。
+    private static func exportRootURL() -> URL {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return documents.appendingPathComponent("Scans", isDirectory: true)
     }
 
     /// 装载去畸变模型；**失败只降级不崩**：模型缺失/加载失败 → `nil` + 原因文本。

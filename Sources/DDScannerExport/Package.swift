@@ -17,6 +17,12 @@ let package = Package(
             dependencies: [.product(name: "DDScannerCore", package: "DDScannerCore")],
             path: "Sources/DDScannerExport"
         ),
+        // 位图导出行为测试（本机 macOS 可跑，无模拟器）：JPEG/PDF 落盘、页面尺寸、唯一目录、失败清理。
+        .testTarget(
+            name: "DDScannerExportTests",
+            dependencies: ["DDScannerExport"],
+            path: "Tests/DDScannerExportTests"
+        ),
     ],
     swiftLanguageModes: [.v5]
 )

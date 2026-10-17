@@ -14,6 +14,8 @@ public enum ScannerError: Error, Equatable, CustomStringConvertible {
     case modelUnavailable(String)
     /// 输入帧尺寸非法。
     case invalidFrameSize(width: Int, height: Int)
+    /// 位图导出失败（目录不可写 / 编码失败等）。
+    case exportFailed(String)
 
     public var description: String {
         switch self {
@@ -23,6 +25,7 @@ public enum ScannerError: Error, Equatable, CustomStringConvertible {
         case let .stageNotConfigured(stage): return "管线阶段未装配：\(stage)"
         case let .modelUnavailable(reason): return "模型不可用：\(reason)"
         case let .invalidFrameSize(width, height): return "非法帧尺寸：\(width)×\(height)"
+        case let .exportFailed(reason): return "导出失败：\(reason)"
         }
     }
 }

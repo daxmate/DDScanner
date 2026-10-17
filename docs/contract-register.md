@@ -140,3 +140,13 @@ CI 的三个测试 step（Core / 契约 / Dewarp）都把输出落盘后调 `scr
 aspect-fit 双向映射、拖拽夹紧、合法性判定，纯值计算、无全局状态。**产品路径只有这一份映射 / 校验实现**，
 App 层 `QuadEditorView` 只做呈现与手势、不得复制（与「参考实现」节的反向约束同源：几何逻辑唯一）。由
 Core 单测 `QuadEditingTests.swift` 覆盖（本机可跑），不新增契约测试文件（无扫描型契约语义）。
+
+### 位图导出与旧 PageExporting 契约的边界（批 B3）
+
+- **v1 位图导出走 `ScanFileExporter`**（`Sources/DDScannerExport/.../ScanFileExporter.swift`）：以矫正后的
+  `CGImage` 为输入，一次写 JPEG + 单页 PDF 到沙盒唯一目录；App 层结果页经组合根注入的
+  `ScanEnvironment.scanFileExporter` 调用。
+- **旧 `PageExporting` / `ScannedPage`（采样网格契约）保留给未来管线，本批不接线**：B1/B2 的实际产物是
+  `CGImage` 位图，没有像素输入走网格契约；`PDFPageExporter` 仍是旧契约占位（stub），**不写第二份 PDF 生成逻辑**。
+  未来管线若要按网格出页，再回这条旧契约接线。
+- 若需改动旧契约以避免重复，**必须停下报告**，不自行改（任务包红线）。

@@ -16,6 +16,8 @@
 // 明确不做（后续批次）：导出（B3）、UVDoc 弯页去畸变（v1 外）。
 import CoreGraphics
 import DDScannerCore
+import DDScannerExport
+import Foundation
 import SwiftUI
 
 struct CaptureFlowView: View {
@@ -59,7 +61,18 @@ struct CaptureFlowView: View {
         }
     }
 
+    /// 导出（保存）状态：结果页「保存」按钮的反馈。
+    enum ExportStatus: Equatable {
+        case idle
+        case saving
+        case saved(String)
+        case failed(String)
+    }
+
     @State private var phase: Phase = .preparing
+    @State private var exportStatus: ExportStatus = .idle
+    /// 在途导出任务（重拍 / 离页时取消）。
+    @State private var exportTask: Task<Void, Never>?
     @State private var correctedImage: CGImage?
     /// 方向已归一化的原图（四角编辑阶段显示）。
     @State private var uprightImage: CGImage?
@@ -85,6 +98,7 @@ struct CaptureFlowView: View {
         .task { await prepare() }
         .onDisappear {
             task?.cancel()
+            exportTask?.cancel()
             // 断开与服务的长生命周期回调（服务持有本视图的闭包；同时让服务停止自愈）。
             camera?.onEvent = nil
             camera?.stopRunning()
@@ -173,11 +187,54 @@ struct CaptureFlowView: View {
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            saveButton
+            exportFeedback
             retakeButton
 
             Spacer(minLength: 0)
         }
         .padding()
+    }
+
+    /// 结果页「保存」按钮：保存期间禁用；成功/失败后仍可再次保存或重拍。
+    private var saveButton: some View {
+        Button {
+            save()
+        } label: {
+            if exportStatus == .saving {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(String(localized: "export.saving"))
+                }
+            } else {
+                Text(String(localized: "export.save"))
+            }
+        }
+        .font(.title3)
+        .buttonStyle(.borderedProminent)
+        .disabled(exportStatus == .saving)
+    }
+
+    /// 成功/失败一行反馈；空闲时不占位。
+    @ViewBuilder
+    private var exportFeedback: some View {
+        switch exportStatus {
+        case .idle, .saving:
+            EmptyView()
+        case let .saved(relativePath):
+            Text(String(localized: "export.saved"))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Text(relativePath)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        case let .failed(message):
+            Text(String(localized: "export.failed") + " \(message)")
+                .font(.footnote)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
+        }
     }
 
     /// 失败页：一行原因 + 「重拍」入口（与结果页同一按钮形态），不留死路。
@@ -323,8 +380,48 @@ struct CaptureFlowView: View {
         }
     }
 
+    /// 把矫正后的页面保存为 JPEG + PDF（后台线程），结果回 @MainActor 更新状态。
+    private func save() {
+        guard let scanFileExporter = scanEnvironment?.scanFileExporter,
+              let exportRootURL = scanEnvironment?.exportRootURL,
+              let correctedImage else {
+            exportStatus = .failed(String(localized: "capture.failed"))
+            return
+        }
+        exportTask?.cancel()
+        exportStatus = .saving
+        exportTask = Task { @MainActor in
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    try scanFileExporter.export(image: correctedImage, baseFilename: "page", to: exportRootURL)
+                }.value
+                try Task.checkCancellation()
+                exportStatus = .saved(relativePath(of: result.imageURL, against: exportRootURL))
+            } catch is CancellationError {
+                // 已重拍 / 已离页：不回填过期结果。
+            } catch let error as ScannerError {
+                exportStatus = .failed(error.description)
+            } catch {
+                exportStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    /// 相对 Documents 目录的路径（如 Scans/20261017-123456-abcd/page.jpg），供成功反馈显示。
+    /// - Parameter root: 导出根目录（Documents/Scans）；相对其父目录（Documents）计算。
+    private func relativePath(of url: URL, against root: URL) -> String {
+        let documents = root.deletingLastPathComponent().standardizedFileURL.path
+        let urlPath = url.standardizedFileURL.path
+        if urlPath.hasPrefix(documents + "/") {
+            return String(urlPath.dropFirst(documents.count + 1))
+        }
+        return url.lastPathComponent
+    }
+
     private func retake() {
         task?.cancel()
+        exportTask?.cancel()
+        exportStatus = .idle
         uprightImage = nil
         quad = nil
         correctedImage = nil

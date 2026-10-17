@@ -30,3 +30,13 @@
 "quad.corner.topRight" = "Top-right corner";
 "quad.corner.bottomRight" = "Bottom-right corner";
 "quad.corner.bottomLeft" = "Bottom-left corner";
+
+"export.save" = "Save";
+"export.saving" = "Saving…";
+"export.saved" = "Saved to the DDScanner folder in the Files app.";
+"export.failed" = "Save failed:";
+
+"export.save" = "Save";
+"export.saving" = "Saving…";
+"export.saved" = "Saved to the DDScanner folder in the Files app.";
+"export.failed" = "Save failed:";

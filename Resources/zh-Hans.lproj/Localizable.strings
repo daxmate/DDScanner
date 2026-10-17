@@ -30,3 +30,8 @@
 "quad.corner.topRight" = "右上角";
 "quad.corner.bottomRight" = "右下角";
 "quad.corner.bottomLeft" = "左下角";
+
+"export.save" = "保存";
+"export.saving" = "正在保存…";
+"export.saved" = "已保存到「文件」App 的 DDScanner 文件夹。";
+"export.failed" = "保存失败：";
