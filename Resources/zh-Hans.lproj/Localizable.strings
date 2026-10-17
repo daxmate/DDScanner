@@ -19,3 +19,14 @@
 "capture.recoveryFailed" = "相机未能自动恢复，请点「重拍」重试。";
 "capture.notRunning" = "相机未在取景状态，无法拍摄。请点「重拍」重新开始。";
 "capture.recovering" = "相机正在自动恢复…";
+"quad.title" = "调整四角";
+"quad.hint" = "拖动四角微调文档边界。";
+"quad.retake" = "重拍";
+"quad.confirm" = "完成";
+"quad.invalid.degenerate" = "角点重合，请把角点拉开。";
+"quad.invalid.nonConvex" = "角点未构成凸四边形，请调整。";
+"quad.invalid.areaTooSmall" = "选区面积过小，请拉大。";
+"quad.corner.topLeft" = "左上角";
+"quad.corner.topRight" = "右上角";
+"quad.corner.bottomRight" = "右下角";
+"quad.corner.bottomLeft" = "左下角";

@@ -1,4 +1,4 @@
-// CaptureFlowView —— 生产拍摄流程（批 B1）：取景 → 拍摄 → 自动检测 → 几何矫正 → 屏内预览。
+// CaptureFlowView —— 生产拍摄流程（批 B1 + B2）：取景 → 拍摄 → 自动检测 → 四角微调 → 几何矫正 → 屏内预览。
 //
 // 依赖全部来自组合根（`@Environment(\.scanEnvironment)`）：本文件**不 new 任何管线实现**，
 // 只驱动 `CameraCaptureService`（采集）与 `PhotoScanRunner`（检测 + 几何矫正）。
@@ -13,7 +13,7 @@
 //   - 自动恢复成功（`.recoverySucceeded`）→ 留在原态；
 //   - 只有「已尝试重启且仍不可用」（`.recoveryFailed`）才进失败态并给「重拍」入口。
 //
-// 明确不做（后续批次）：四角拖拽微调（B2）、导出（B3）、UVDoc 弯页去畸变（v1 外）。
+// 明确不做（后续批次）：导出（B3）、UVDoc 弯页去畸变（v1 外）。
 import CoreGraphics
 import DDScannerCore
 import SwiftUI
@@ -26,6 +26,7 @@ struct CaptureFlowView: View {
         case preparing
         case ready
         case capturing
+        case editing
         case processing
         case result
         case denied
@@ -60,6 +61,10 @@ struct CaptureFlowView: View {
 
     @State private var phase: Phase = .preparing
     @State private var correctedImage: CGImage?
+    /// 方向已归一化的原图（四角编辑阶段显示）。
+    @State private var uprightImage: CGImage?
+    /// 当前四角（归一化，TL → TR → BR → BL）。
+    @State private var quad: DocumentQuad?
     /// 在途任务（重拍 / 离页时取消）。
     @State private var task: Task<Void, Never>?
     /// 相机正在自动恢复（只提示、不打断、不锁失败态）。
@@ -93,6 +98,8 @@ struct CaptureFlowView: View {
         switch phase {
         case .result:
             resultBlock
+        case .editing:
+            editingBlock
         case .denied:
             messageBlock(String(localized: "capture.denied"), symbol: "camera.metering.unknown")
         case .unavailable:
@@ -143,6 +150,19 @@ struct CaptureFlowView: View {
             Spacer(minLength: 0)
         }
         .padding()
+    }
+
+    private var editingBlock: some View {
+        Group {
+            if let uprightImage, let quad {
+                QuadEditorView(
+                    image: uprightImage,
+                    quad: quad,
+                    onConfirm: { adjusted in confirm(adjusted) },
+                    onRetake: { retake() }
+                )
+            }
+        }
     }
 
     private var resultBlock: some View {
@@ -261,14 +281,16 @@ struct CaptureFlowView: View {
                 let data = try await camera.capturePhoto()
                 try Task.checkCancellation()
                 phase = .processing
-                let result = try await Task.detached(priority: .userInitiated) {
+                let outcome = try await Task.detached(priority: .userInitiated) {
                     let image = try CapturedPhotoDecoder.decode(data)
                     return try scanner.scan(image)
                 }.value
                 try Task.checkCancellation()
                 camera.stopRunning()
-                correctedImage = result.image
-                phase = .result
+                uprightImage = outcome.uprightImage
+                quad = outcome.quad
+                correctedImage = outcome.correctedImage
+                phase = .editing
             } catch is CancellationError {
                 // 页面已离开或已重拍：不回填过期结果。
             } catch {
@@ -277,8 +299,34 @@ struct CaptureFlowView: View {
         }
     }
 
+    /// 用户确认调整后的四角：取消在途任务，重新矫正后进结果页。
+    private func confirm(_ adjustedQuad: DocumentQuad) {
+        guard let scanner, let uprightImage else {
+            fail(.other)
+            return
+        }
+        task?.cancel()
+        phase = .processing
+        task = Task { @MainActor in
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    try scanner.correct(uprightImage, quad: adjustedQuad)
+                }.value
+                try Task.checkCancellation()
+                correctedImage = result.image
+                phase = .result
+            } catch is CancellationError {
+                // 已重拍 / 已离页：不回填过期结果。
+            } catch {
+                fail(Self.failureReason(for: error))
+            }
+        }
+    }
+
     private func retake() {
         task?.cancel()
+        uprightImage = nil
+        quad = nil
         correctedImage = nil
         isRecovering = false
         phase = .ready

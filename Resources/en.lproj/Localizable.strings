@@ -19,3 +19,14 @@
 "capture.recoveryFailed" = "The camera could not recover automatically. Tap Retake to try again.";
 "capture.notRunning" = "The camera is not in a ready state, so it cannot capture. Tap Retake to restart.";
 "capture.recovering" = "Recovering the camera…";
+"quad.title" = "Adjust Corners";
+"quad.hint" = "Drag the corners to fine-tune the document boundary.";
+"quad.retake" = "Retake";
+"quad.confirm" = "Done";
+"quad.invalid.degenerate" = "Corners overlap. Spread them apart.";
+"quad.invalid.nonConvex" = "Corners don't form a convex shape.";
+"quad.invalid.areaTooSmall" = "The selected area is too small.";
+"quad.corner.topLeft" = "Top-left corner";
+"quad.corner.topRight" = "Top-right corner";
+"quad.corner.bottomRight" = "Bottom-right corner";
+"quad.corner.bottomLeft" = "Bottom-left corner";
