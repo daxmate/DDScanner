@@ -35,6 +35,25 @@ bash scripts/check-dependency-licenses.sh                # license gate
 Local simulator runs are deliberately **not** part of the workflow: UI and performance
 verification happens on real devices (`docs/device-acceptance-checklist.md`).
 
+## 真机构建 / 安装
+
+真机（iOS 17+）构建走 `scripts/build-device.sh`，内部经统一构建入口 `scripts/xcbuild.sh`（G9）。
+签名沿用工程既有设置（`project.yml` 的 `DEVELOPMENT_TEAM`），自动签名由 `-allowProvisioningUpdates`
+处理，**不硬编码 team / 证书**。
+
+```bash
+bash scripts/build-device.sh                      # 生成工程 + 构建 Debug 真机包
+bash scripts/build-device.sh --release --no-gen   # 跳过生成，构建 Release
+bash scripts/build-device.sh --install            # 构建后安装到唯一已连接真机
+bash scripts/build-device.sh --launch             # 安装后启动 App（隐含 --install）
+bash scripts/build-device.sh --device <udid|名称> --install   # 指定真机
+```
+
+- 产物：`.build/DerivedData/Build/Products/<Debug|Release>-iphoneos/DDScanner.app`（绝对路径由脚本打印）。
+- `--install` / `--launch` 未给 `--device` 时自动取**唯一**已连接真机；0 台或多台会明确报错并列出候选。
+- 与 CI 的区别：CI 只做**编译级验证**（模拟器通用目标 + 关闭签名）；本脚本面向**真机**
+  （`generic/platform=iOS`），用于装到设备上做 UI / 性能验收（见 `docs/device-acceptance-checklist.md`）。
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). Third-party notices
