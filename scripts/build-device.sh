@@ -12,7 +12,7 @@ cd "${ROOT}"
 
 APP_NAME="DDScanner"
 APP_BUNDLE_ID="com.daxmate.DDScanner"
-DEVICECTL_TIMEOUT_SECONDS=20
+DEVICE_LIST_TIMEOUT_SECONDS=20
 
 CONFIG="Debug"
 RUN_GEN=1
@@ -84,50 +84,118 @@ run_with_timeout_to_file() {
   wait "${pid}"
 }
 
-# 打印当前「已连接」真机的 identifier（每行一个）。
-connected_device_ids() {
-  local out_file="${TMPDIR:-/tmp}/ddscanner-devices-$$.txt"
-  if ! run_with_timeout_to_file "${DEVICECTL_TIMEOUT_SECONDS}" "${out_file}" xcrun devicectl list devices; then
-    echo "❌ 无法列出真机（xcrun devicectl list devices 失败或超时 ${DEVICECTL_TIMEOUT_SECONDS}s）" >&2
+# 列出真机条目（每行制表符分隔「状态 \t 名称 \t UDID」）。
+#   状态 device  = 运行本脚本的这台 Mac 上可直接安装 / 启动
+#   状态 offline = 已配对但本机不可达（设备连在别的 Mac 上，或未插到本机）
+# 数据源用 `xcrun xctrace list devices`：`devicectl list devices` 在部分机器上会挂死（内部服务
+# 不返回，命令一直不退出），故设备检测不再依赖 devicectl；devicectl 仅保留给安装 / 启动。
+# 只解析 `== Devices ==` 段（跳过该段第一行——运行本脚本的 Mac 自己）与 `== Devices Offline ==` 段；
+# 完全忽略 `== Simulators ==`（禁模拟器）。
+list_device_entries() {
+  local out_file="${TMPDIR:-/tmp}/ddscanner-xctrace-$$.txt"
+  if ! run_with_timeout_to_file "${DEVICE_LIST_TIMEOUT_SECONDS}" "${out_file}" xcrun xctrace list devices; then
+    echo "❌ 无法列出真机（xcrun xctrace list devices 失败或超时 ${DEVICE_LIST_TIMEOUT_SECONDS}s）" >&2
     return 1
   fi
-  # awk：找出 36 位 UUID 字段，且其后一列状态为 connected。
-  # shellcheck disable=SC2016
-  awk '
-    {
-      for (i = 1; i <= NF; i++) {
-        if (length($i) == 36 && $i ~ /^[0-9A-Fa-f]+-[0-9A-Fa-f]+-[0-9A-Fa-f]+-[0-9A-Fa-f]+-[0-9A-Fa-f]+$/ && $(i + 1) == "connected") {
-          print $i
-        }
-      }
-    }' "${out_file}"
+  local section=""
+  local first_in_devices=0
+  local line head name udid
+  while IFS= read -r line; do
+    case "${line}" in
+      "== Devices ==")
+        section="devices"
+        first_in_devices=1
+        continue
+        ;;
+      "== Devices Offline ==")
+        section="offline"
+        continue
+        ;;
+      "== Simulators ==")
+        section="simulators"
+        continue
+        ;;
+      "== "*)
+        section="other"
+        continue
+        ;;
+    esac
+    # 跳过空行
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      continue
+    fi
+    # 只保留 Devices / Devices Offline 两段
+    if [[ "${section}" != "devices" && "${section}" != "offline" ]]; then
+      continue
+    fi
+    # `== Devices ==` 段第一行是运行本脚本的 Mac 自己，跳过
+    if [[ "${section}" == "devices" && "${first_in_devices}" -eq 1 ]]; then
+      first_in_devices=0
+      continue
+    fi
+    # 行格式：`名称 (iOS x.y) (UDID)`（末括号内是设备 UDID）
+    if [[ "${line}" =~ ^(.*[^[:space:]])[[:space:]]+\(([0-9A-Fa-f-]{16,})\)[[:space:]]*$ ]]; then
+      head="${BASH_REMATCH[1]}"
+      udid="${BASH_REMATCH[2]}"
+    else
+      continue
+    fi
+    # 去掉名称后可能跟随的系统版本括号，如 `(iOS 26.6.2)`
+    if [[ "${head}" =~ ^(.*[^[:space:]])[[:space:]]+\([^()]*\)$ ]]; then
+      name="${BASH_REMATCH[1]}"
+    else
+      name="${head}"
+    fi
+    if [[ "${section}" == "devices" ]]; then
+      printf 'device\t%s\t%s\n' "${name}" "${udid}"
+    else
+      printf 'offline\t%s\t%s\n' "${name}" "${udid}"
+    fi
+  done < "${out_file}"
 }
 
-# 解析目标真机：--device 优先；否则要求恰有一台已连接真机。
+# 解析目标真机：--device 优先；否则要求恰有一台本机可达真机。
+# 失败时把三种情形分开报错，便于自查（离线设备 / 完全没有设备 / 多台）。
 resolve_device() {
   if [[ -n "${DEVICE}" ]]; then
     printf '%s' "${DEVICE}"
     return 0
   fi
-  local ids
-  if ! ids="$(connected_device_ids)"; then
+  local entries
+  if ! entries="$(list_device_entries)"; then
     return 1
   fi
-  local count=0
-  if [[ -n "${ids}" ]]; then
-    count="$(printf '%s\n' "${ids}" | grep -c .)"
-  fi
-  if [[ "${count}" -eq 0 ]]; then
-    echo "❌ 未检测到已连接的真机，请连接设备或用 --device <udid|名称> 指定" >&2
+  local online_count offline_count
+  online_count="$(printf '%s\n' "${entries}" | awk -F'\t' '$1 == "device" { n++ } END { print n + 0 }')"
+  offline_count="$(printf '%s\n' "${entries}" | awk -F'\t' '$1 == "offline" { n++ } END { print n + 0 }')"
+
+  if [[ "${online_count}" -eq 0 ]]; then
+    if [[ "${offline_count}" -gt 0 ]]; then
+      echo "❌ 未检测到本机可达的真机（本机 = 运行本脚本的这台 Mac）" >&2
+      echo "   发现以下已配对的离线设备：" >&2
+      printf '%s\n' "${entries}" | awk -F'\t' '$1 == "offline" { printf "     - %s（UDID %s）\n", $2, $3 }' >&2
+      echo "   这些设备已配对，但在运行本脚本的这台 Mac 上不可达 → 把设备插到这台 Mac，或改用有设备的机器，或 --device <udid|名称>" >&2
+    else
+      echo "❌ 未检测到任何真机。确认设备已插到本机、已解锁并点『信任』。" >&2
+    fi
     return 1
   fi
-  if [[ "${count}" -gt 1 ]]; then
-    echo "❌ 检测到多台已连接真机，请用 --device <udid> 指定其一：" >&2
-    printf '%s\n' "${ids}" >&2
+
+  if [[ "${online_count}" -gt 1 ]]; then
+    echo "❌ 检测到多台本机可达真机，请用 --device <udid|名称> 指定其一：" >&2
+    printf '%s\n' "${entries}" | awk -F'\t' '$1 == "device" { printf "     - %s（UDID %s）\n", $2, $3 }' >&2
     return 1
   fi
-  printf '%s' "${ids}"
+
+  printf '%s\n' "${entries}" | awk -F'\t' '$1 == "device" { print $3 }'
 }
+
+# 提前解析目标真机：装不到设备就没必要跑构建，也避免长时间构建后才发现设备不可达。
+TARGET_DEVICE=""
+if [[ "${DO_INSTALL}" -eq 1 ]]; then
+  TARGET_DEVICE="$(resolve_device)" || exit 1
+  echo "▶ 目标真机：${TARGET_DEVICE}"
+fi
 
 if [[ "${RUN_GEN}" -eq 1 ]]; then
   echo "▶ 生成工程（scripts/gen-project.sh）"
@@ -156,9 +224,7 @@ echo "   commit：${COMMIT}${DIRTY}"
 echo "   配置  ：${CONFIG}"
 echo "   产物  ：${APP_PATH}"
 
-TARGET_DEVICE=""
 if [[ "${DO_INSTALL}" -eq 1 ]]; then
-  TARGET_DEVICE="$(resolve_device)" || exit 1
   echo "▶ 安装到真机：${TARGET_DEVICE}"
   xcrun devicectl device install app --device "${TARGET_DEVICE}" "${APP_PATH}"
 fi
