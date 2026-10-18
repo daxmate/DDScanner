@@ -91,8 +91,8 @@ Tests/ContractTests/     扫描型契约测试（可在 macOS 本地直接跑）
   （载入 → 检测 → 矫正 → 预处理 → 推理 n/N → 重采样）。取消与进度契约收在 Core 的
   `StagedLoop`（逐轮检查取消 + 回报进度，本机可测）。大图守卫：源平面像素数必须
   ≤ `GridResampler.maximumSourcePixelCount`（2^24），否则明确报错。
-- **仍未接管线**：`ScanPipeline` 的 `DocumentDetecting`（帧几何入口）仍不含像素，相机/拍摄/
-  四角微调属后续批次；本批的像素前段由自测页直接消费。
+- **仍未接管线**：`ScanPipeline` 的 `DocumentDetecting`（帧几何入口）仍不含像素，四角微调属后续
+  批次（批 B2）。相机拍摄与像素前段已在**批 B1** 接上（见文末「批 B1」）。
 
 ## 批 10：透视矫正的分解计时与提速
 
@@ -195,5 +195,75 @@ Debug + Release 各一份），再按实测数据提速。
   （blend / damping）—— 本批只做**硬跳过**原型。
 - **契约**：`GridIdentityDeviationTests`（`Tests/DDScannerCoreTests/GridIdentityDeviationTests.swift`）——
   恒等 = 0（含 1×1 退化网格）/ 非有限值 → `nil` / 逐轴仿射缩放归一化后回 0（只看形变不看缩放）/
-  手算算例钉死 / 门控四态 + 负阈值钳 0。Core 用例数下限 116 → **126**。登记见 `docs/contract-register.md`。
+  手算算例钉死 / 门控四态 + 负阈值钳 0。Core 用例数下限 116 → **145**（合并后实测；本批 +10）。登记见 `docs/contract-register.md`。
 - **真机效果不做**：门控开关对比与阈值标定由用户真机验收；本地只做编译级验证（无模拟器）。
+
+## 批 B1：相机拍摄 → 自动检测 → 几何矫正 → 预览
+
+v1 的第一个产品切片：首页「拍摄文档」→ 相机取景 → 拍摄（全分辨率）→ 自动检测四角 → 透视矫正 +
+裁切 → 屏内预览矫正结果（可重拍）。**四角拖拽微调（B2）、导出（B3）、UVDoc 弯页去畸变（v1 外）**
+明确不做。
+
+- **分层**：相机采集（AVFoundation）**只留在 App 层**，不进 Core / Vision / Dewarp / Export；
+  检测与几何**复用既有后端**，不新增第二份实现：
+  - 采集：`App/Capture/CameraCaptureService.swift`（会话配置 / 权限 / 拍摄，专用串行队列）、
+    `App/Capture/CameraPreviewView.swift`（预览层包装）、
+    `App/Capture/CapturedPhotoDecoder.swift`（ImageIO 摆正 EXIF + 最长边封顶 4032）。
+  - 编排：`App/Capture/PhotoScanRunner.swift` —— `ImageDocumentDetecting`（Vision 四角）→
+    `CoreImagePerspectiveCorrector.correctedImage(from:quad:)`（几何在 Core 的 `DocumentRectifier`）。
+  - 界面：`App/Capture/CaptureFlowView.swift`（阶段机 + 预览；只驱动，不 new 实现）。
+- **装配**：`PhotoScanRunner` 与 `CameraCaptureService` 均在唯一装配点 `AppCompositionRoot.swift`
+  构造，经 `ScanEnvironment` 下发；消费端登记在 `Tests/Fixtures/environment-consumers.tsv`。
+- **线程纪律（P0）**：拍摄后的解码 + 检测 + 矫正一律 `Task.detached`，结果经 `@MainActor` 回填；
+  重拍 / 离页 `cancel()` 在途任务，取消后不回填过期结果。
+- **降级与失败路径**：权限被拒 / 设备无相机 / 检测不到文档 / 会话中断 / 运行时错误 → 各显示一行原因
+  + 「重拍」入口（不留 UI 死路）；进失败态即停会话（中断除外，见下）。
+- **中断与错误恢复**：观察 `AVCaptureSession` 的 `wasInterrupted` / `interruptionEnded` /
+  `runtimeError` 三种通知，事件语义与界面一一对应：
+  - 中断（`interrupted`）→ 会话由系统停住；界面进失败态，给**一行原因**（`capture.interrupted`）
+    + 「重拍」入口（不主动 `stopRunning()`，否则会清掉自动恢复意图）；
+  - 中断结束（`resumed`）→ 重启会话，**确认 `session.isRunning` 之后**才发事件、收回可拍
+    （避免恢复窗口里点快门撞 `sessionNotRunning`）；起不来则进失败态（`recoveryFailed`）；
+  - 运行时错误（`recoveryStarted` / `recoverySucceeded` / `recoveryFailed`）→ 界面先给**不打断**的
+    「正在恢复」提示（`capture.recovering`，期间禁用快门、**不进失败态**）；服务按**退避 0.5s / 2s /
+    5s + 上限 3 次**自动重启；恢复成功留在原态，**只有「已尝试重启且仍不可用」才进失败态**并给「重拍」；
+  - 界面卸载（`onEvent == nil`）时**不自愈**（没有消费者就不自动重启）；用户点「重拍」会清零退避计数、
+    重新武装自愈。
+  `capturePhoto()` 前校验 `session.isRunning`；中断与错误处理全部留在 App 层，不进 Core / Vision。
+- **本地验证**：相机与视觉链路真机才作数，iOS 侧只做编译级验证 + 代码审查；真机验收项见
+  `docs/device-acceptance-checklist.md`「拍摄与检测」。
+
+## 批 B2：四角拖拽微调
+
+B1 自动检测四角后，给用户一个四角拖拽微调界面；确认后用调整后的四角重新跑几何矫正，再显示结果预览
+（对标 CamScanner 基础交互）。
+
+- **几何（Core，平台无关）**：新增 `Sources/DDScannerCore/.../Geometry/QuadEditing.swift` —— 角点索引
+  （TL → TR → BR → BL，与 `DocumentQuad` 顺序一致）、aspect-fit 双向映射（图片 + 显示矩形 → 归一化 /
+  像素 ↔ 视图，含 letterbox 偏移）、拖拽夹紧（边界 + 相邻角最小距离，默认图片短边 2%、参数可注入）、
+  合法性判定（重合 / 非凸 / 面积过小，返回可诊断原因）。纯值计算、Sendable、无全局状态；单测
+  `QuadEditingTests.swift` 本机可跑。
+- **界面（App）**：新增 `App/Capture/QuadEditorView.swift` —— upright 原图 + 四边形外变暗遮罩 + 四边
+  连线 + 四个角手柄（视觉 16pt / 命中 44pt）+ 拖动中 2× 放大镜（跟随角点、十字准星、不挡按钮）。命名
+  坐标空间 `quadEditor`，禁全局坐标硬算；角手柄带 accessibilityLabel（本地化 key）。
+- **编排（App）**：`PhotoScanRunner` 拆成 `scan`（检测 + 首次矫正 → `PhotoScanOutcome`：upright 原图
+  + 归一化四角 + 矫正图 + 置信度）与 `correct(image:quad:)`（用调整后四角重新矫正）；复用同一
+  `CoreImagePerspectiveCorrector` / `DocumentRectifier`，无第二份透视实现。解码 / 检测 / 矫正仍在
+  `Task.detached`，结果 `@MainActor` 回填；重拍 / 离页 / 再次确认取消在途任务，过期结果不回填（P2-1）。
+- **流程（App）**：`CaptureFlowView` 状态机新增编辑阶段 ready → capturing → editing → processing →
+  result；确认后重新矫正进 result，重拍清空状态、恢复相机预览。
+- **本地化**：`quad.*` key 补齐 en / zh-Hans 两语言（契约 `LocalizationKeySet` 校验两语言不漏 key）。
+- **本地验证**：iOS 侧只做编译级验证 + 代码审查；拖拽手感 / 放大镜 / 无障碍由真机验收。
+
+## 批 B3 补：沙盒文件在「文件」App 可见（显式 Info.plist）
+
+B3 导出 JPEG/PDF 到 Documents/Scans 后，发现「文件」App 看不到 DDScanner 的 Documents——根因是
+`GENERATE_INFOPLIST_FILE` + `INFOPLIST_KEY_` 机制里 `INFOPLIST_KEY_UIFileSharingEnabled` 不会进最终
+Info.plist（`INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace` 却会，只有文件共享这个键不生效）。
+
+- **改为显式 Info.plist**：app target 走 XcodeGen `info:` 生成 `App/Info.plist`（`INFOPLIST_FILE`），
+  关掉 `GENERATE_INFOPLIST_FILE`；相机/相册用途描述、方向、启动屏、scene manifest 等原 `INFOPLIST_KEY_`
+  全部迁入显式 plist，测试 target 的自动 plist 不动。
+- **⚠️ 显式 plist 必须保留 `UIFileSharingEnabled = true`**（与 `LSSupportsOpeningDocumentsInPlace = true`
+  一起），否则沙盒文件在「文件」App 不可见。
+- 版本键走标准变量 `$(MARKETING_VERSION)` / `$(CURRENT_PROJECT_VERSION)`（project.yml 里定 1.0 / 1）。

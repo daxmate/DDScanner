@@ -13,12 +13,20 @@ struct ScanEnvironment {
     let imageDetector: ImageDocumentDetecting
     /// 透视校正 + 裁切的平台成像后端（几何在 Core）。
     let perspectiveCorrector: CoreImagePerspectiveCorrector
+    /// 拍摄后的「自动检测 → 几何矫正」编排（复用上面两个后端，批 B1）。
+    let photoScanner: PhotoScanRunner
+    /// 相机采集服务（App 层唯一持有 AVFoundation 的位置）；页面只驱动，不自行 new。
+    let camera: CameraCaptureService
     /// 去畸变网格后端（UVDoc Core ML）；**模型缺失时为 nil**，消费端必须能降级处理、不得崩。
     let gridPredictor: GridPredicting?
     /// 模型装载结果的人话描述，供开发自测页显示（成功或失败原因）。
     let dewarpStatus: String
     /// 请求的算力单元（MLComputeUnits）；模型不可用时为「不可用」。
     let dewarpComputeUnits: String
+    /// 位图导出器（批 B3）：把矫正后的 CGImage 写成 JPEG + PDF，落到沙盒（组合根唯一装配点）。
+    let scanFileExporter: ScanFileExporter
+    /// 导出根目录（沙盒 Documents/Scans）。
+    let exportRootURL: URL
 }
 
 enum AppCompositionRoot {
@@ -26,22 +34,37 @@ enum AppCompositionRoot {
     static func makeScanEnvironment() -> ScanEnvironment {
         let detector = VisionDocumentDetector()
         let corrector = CoreImagePerspectiveCorrector()
+        let photoScanner = PhotoScanRunner(detector: detector, corrector: corrector)
+        let camera = CameraCaptureService()
         let pipeline = ScanPipeline(
             detector: detector,
             corrector: corrector,
             dewarp: nil,
             exporter: PDFPageExporter()
         )
+        let scanFileExporter = ScanFileExporter()
+        let exportRootURL = Self.exportRootURL()
         let (gridPredictor, dewarpStatus, dewarpComputeUnits) = makeDewarpBackend()
         AppLog.info("扫描管线装配完成（去畸变：\(dewarpStatus)）", category: .app)
         return ScanEnvironment(
             pipeline: pipeline,
             imageDetector: detector,
             perspectiveCorrector: corrector,
+            photoScanner: photoScanner,
+            camera: camera,
             gridPredictor: gridPredictor,
             dewarpStatus: dewarpStatus,
-            dewarpComputeUnits: dewarpComputeUnits
+            dewarpComputeUnits: dewarpComputeUnits,
+            scanFileExporter: scanFileExporter,
+            exportRootURL: exportRootURL
         )
+    }
+
+    /// 位图导出根目录：沙盒 Documents/Scans（批 B3）。
+    private static func exportRootURL() -> URL {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return documents.appendingPathComponent("Scans", isDirectory: true)
     }
 
     /// 装载去畸变模型；**失败只降级不崩**：模型缺失/加载失败 → `nil` + 原因文本。

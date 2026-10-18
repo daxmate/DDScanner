@@ -13,6 +13,13 @@ struct ContentView: View {
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
+
+                NavigationLink {
+                    CaptureFlowView()
+                } label: {
+                    Label(String(localized: "scan.capture"), systemImage: "camera.viewfinder")
+                }
+                .buttonStyle(.borderedProminent)
             }
             .navigationTitle(String(localized: "app.title"))
             #if DEBUG
