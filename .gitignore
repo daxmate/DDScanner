@@ -1,5 +1,6 @@
 # Xcode / SwiftPM 构建产物
 .build/
+build/
 DerivedData/
 *.xcuserstate
 xcuserdata/

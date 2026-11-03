@@ -37,7 +37,7 @@ usage() {
   --no-gen              跳过 scripts/gen-project.sh，直接用现有工程构建
   -h, --help            显示本帮助
 
-产物：.build/DerivedData/Build/Products/<Debug|Release>-iphoneos/DDScanner.app
+产物：build/Products/iphoneos/<Debug|Release>/DDScanner.app
 EOF
 }
 
@@ -252,14 +252,16 @@ if [[ "${RUN_GEN}" -eq 1 ]]; then
   bash scripts/gen-project.sh
 fi
 
-DERIVED_DATA="${DDSCANNER_DERIVED_DATA:-${ROOT}/.build/DerivedData}"
-APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIG}-iphoneos/${APP_NAME}.app"
+# 中间产物统一 build/DerivedData；成品由 scripts/xcbuild.sh 复制到 build/Products/<sdk>/<Config>/。
+DERIVED_DATA="${DDSCANNER_DERIVED_DATA:-${ROOT}/build/DerivedData}"
+APP_PATH="${ROOT}/build/Products/iphoneos/${CONFIG}/${APP_NAME}.app"
 
 echo "▶ 真机构建：配置 ${CONFIG}，目标 generic/platform=iOS"
 bash scripts/xcbuild.sh build -project DDScanner.xcodeproj -scheme DDScanner -configuration "${CONFIG}" -destination 'generic/platform=iOS' -allowProvisioningUpdates
 
 if [[ ! -d "${APP_PATH}" ]]; then
   echo "❌ 未找到构建产物：${APP_PATH}" >&2
+  echo "   （DerivedData：${DERIVED_DATA}）" >&2
   exit 1
 fi
 

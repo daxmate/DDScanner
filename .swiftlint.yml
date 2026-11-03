@@ -12,4 +12,5 @@ only_rules:
   - unused_optional_binding
 excluded:
   - .build
+  - build
   - DDScanner.xcodeproj

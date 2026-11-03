@@ -8,4 +8,4 @@
 --enable spaceInsideBraces
 --enable trailingSpace
 --swiftversion 5.0
---exclude .build,DerivedData,DDScanner.xcodeproj
+--exclude .build,build,DerivedData,DDScanner.xcodeproj
