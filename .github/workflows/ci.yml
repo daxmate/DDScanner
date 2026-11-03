@@ -24,8 +24,14 @@ jobs:
       - name: Install pinned lint tools（G8，装完自校验）
         run: |
           set -euo pipefail
-          brew install swiftlint swiftformat
+          brew install swiftlint
           test "$(swiftlint version)" = "$SWIFTLINT_VERSION" || { echo "swiftlint 版本不符"; exit 1; }
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip"
+          unzip -o -q "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat-bin"
+          chmod +x "$RUNNER_TEMP/swiftformat-bin/swiftformat"
+          echo "$RUNNER_TEMP/swiftformat-bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/swiftformat-bin:$PATH"
           test "$(swiftformat --version)" = "$SWIFTFORMAT_VERSION" || { echo "swiftformat 版本不符"; exit 1; }
       - name: 统一构建入口（G9）
         run: bash scripts/check-build-entry.sh
